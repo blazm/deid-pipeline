@@ -1,4 +1,5 @@
 # Byte-compiled / optimized / DLL files
+**/__pycache__/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -87,3 +88,8 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# De-ID project specific directories
+./DB
+./generator/output
+./replacer/shape_predictor_68_face_landmarks.dat
