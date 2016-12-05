@@ -15,7 +15,7 @@ class Matcher:
         
     def match_n(self, feats):
         pass
-        
+
     def match(self,  feats):  
         self.best_match = 0
         self.best_id = None
@@ -30,7 +30,8 @@ class Matcher:
                 self.best_match = match
                 self.best_id = person_id
         
-        print(self)
+        #print(self)
+        
         return int(self.best_id) # TODO: verify if this is the right id
         
     def __str__(self):

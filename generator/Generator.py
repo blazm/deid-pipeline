@@ -158,7 +158,7 @@ class Generator:
         self.id_len = id_len
         self.model = model
 
-    def generate(self, id, emo='angry', orient='front', _debug=False):
+    def generate(self, id, emo='happy', orient='front', _debug=False):
 
         if orient == 'front':
             orientation = np.zeros((1, 2))
@@ -166,7 +166,7 @@ class Generator:
             raise NotImplementedError
             
         id_weights = np_utils.to_categorical([id], self.id_len)
-        #id_weights[:, 11:21] = 0.2 # testing generation from multiple IDs
+        id_weights[:, 10] = 1.0 # testing generation from multiple IDs
             
         input_vec = {
             'identity': id_weights,  # np_utils.to_categorical([id], self.id_len),

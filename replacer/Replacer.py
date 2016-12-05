@@ -11,6 +11,10 @@ class Replacer:
     def __init__(self):
         self.mask = None
         
+        predictor_path = "./replacer/shape_predictor_68_face_landmarks.dat"
+        #detector = dlib.get_frontal_face_detector()
+        self.predictor = dlib.shape_predictor(predictor_path)
+        
     def shape_to_nparray(self, shape,  displacement=(0, 0)):
         """
         Reshapes Shape from dlib predictor to numpy array
@@ -26,12 +30,35 @@ class Replacer:
             np_arr.append((shape.part(i).x - dx,  shape.part(i).y - dy))
         return np.array(np_arr)
         
+    def generate_skin_mask(self,  img,  mask):
+        # define the upper and lower boundaries of the HSV pixel
+        # intensities to be considered 'skin'
+        # B, G, R
+        lower = np.array([0, 15, 30], dtype = "uint8")
+        upper = np.array([200, 255, 255], dtype = "uint8")
         
+        converted = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        skinMask = cv2.inRange(converted, lower, upper)
+ 
+        # apply a series of erosions and dilations to the mask
+        # using an elliptical kernel
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        skinMask = cv2.erode(skinMask, kernel, iterations = 3)
+        skinMask = cv2.dilate(skinMask, kernel, iterations = 2)
+     
+        # blur the mask to help remove noise, then apply the
+        # mask to the frame
+        skinMask = cv2.GaussianBlur(skinMask, (3, 3), 0)
+        skin = cv2.bitwise_and(img, img, mask = skinMask)
+        mask = cv2.bitwise_and(mask, mask, mask = skinMask)
+        
+        return skin, mask
+    
     def replace_v2(self,  src_img,  src_roi,  gen_img,  _debug=False):
         
-        predictor_path = "./replacer/shape_predictor_68_face_landmarks.dat"
-        #detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor(predictor_path)
+        x, y, w, h = src_roi
+        m = max(w, h)
+        mask = self.generateGaussianMask(m)
         
         x, y, w, h = src_roi
         size = (w, h)
@@ -46,8 +73,8 @@ class Replacer:
         src_detection = dlib.rectangle(ix, iy, ix+iw, iy+ih)
         gen_detection = dlib.rectangle(0, 0, iw, ih)
         
-        src_shape = predictor(src_img, src_detection)
-        gen_shape = predictor(gen_img, gen_detection)
+        src_shape = self.predictor(src_img, src_detection)
+        gen_shape = self.predictor(gen_img, gen_detection)
         
         displacement = (x, y)
         src_pts = self.shape_to_nparray(src_shape,  displacement)
@@ -56,49 +83,67 @@ class Replacer:
        # print("SRC: {}".format(src_pts)) 
        # print("GEN: {}".format(gen_pts)) 
         
-        h, status = cv2.findHomography(gen_pts, src_pts)
+        self.homography, status = cv2.findHomography(gen_pts, src_pts)
         
        # print("S: {}".format(status)) # homography matrix        
        # print("H: {}".format(h)) # homography matrix
         
-        gen_img_warp = cv2.warpPerspective(gen_img, h, size)
+        gen_img_warp = cv2.warpPerspective(gen_img, self.homography, size)
+        mask = cv2.warpPerspective(mask, self.homography, (w, h))
+        
+        # generate skin color mask
+        gen_img_warp, mask = self.generate_skin_mask(gen_img_warp, mask)
         
         if _debug:
             x, y, w, h = src_roi
         #    cv2.namedWindow("Replacer")
             cv2.rectangle(gen_img_warp,(x,y),(x+w,y+h),(0,255,0),1)
             cv2.imshow('Warped gen face', cv2.cvtColor(gen_img_warp, cv2.COLOR_RGB2BGR))
-            cv2.waitKey(0)
+            cv2.waitKey(1)
             #cv2.destroyAllWindows()
         
-        return self.replace(src_img,  src_roi,  gen_img_warp, _debug)
+        return self.replace(src_img,  src_roi,  gen_img_warp, _debug, mask)
   
-    def replace(self, src_img, src_roi, gen_img,  _debug=False):  
+    def replace(self, src_img, src_roi, gen_img, _debug=False, mask=None):  
         x, y, w, h = src_roi
         # TODO: properly center the mask on larger axis
         m = max(w, h)
-        mask = self.generateGaussianMask(m)
+        if mask is None:
+            mask = self.generateGaussianMask(m)
+            #mask = self.warpGaussianMask(mask, gen_img)
+            # OR
+            #mask = self.generateWarpMask(gen_img)
+            mask = cv2.warpPerspective(mask, self.homography, (w, h))
+        
+        # print("MAX Mask: {}".format(mask.max()))
         
         alt_img = copy.copy(src_img)
         
+        
         # blend generated image with Gaussian mask
-        alt_img[y:y+m, x:x+m, 0] = alt_img[y:y+m, x:x+m, 0] * (1-mask) + mask * gen_img[:, :, 0] #*255.0
-        alt_img[y:y+m, x:x+m, 1] = alt_img[y:y+m, x:x+m, 1] * (1-mask) + mask * gen_img[:, :, 1]  #*255.0
-        alt_img[y:y+m, x:x+m, 2] = alt_img[y:y+m, x:x+m, 2] * (1-mask) + mask * gen_img[:, :, 2]  #*255.0
+        try:
+            alt_img[y:y+m, x:x+m, 0] = alt_img[y:y+m, x:x+m, 0] * (1-mask) + mask * gen_img[:, :, 0] #*255.0
+            alt_img[y:y+m, x:x+m, 1] = alt_img[y:y+m, x:x+m, 1] * (1-mask) + mask * gen_img[:, :, 1]  #*255.0
+            alt_img[y:y+m, x:x+m, 2] = alt_img[y:y+m, x:x+m, 2] * (1-mask) + mask * gen_img[:, :, 2]  #*255.0
+        except:
+            pass
+       # alt_img[y:y+m, x:x+m, 0] = (1-warp_mask) * alt_img[y:y+m, x:x+m, 0] + (warp_mask) * (alt_img[y:y+m, x:x+m, 0] * (1-mask) + mask * gen_img[:, :, 0]) #*255.0
+       # alt_img[y:y+m, x:x+m, 1] = (1-warp_mask) * alt_img[y:y+m, x:x+m, 1] + (warp_mask) * (alt_img[y:y+m, x:x+m, 1] * (1-mask) + mask * gen_img[:, :, 1])  #*255.0
+       # alt_img[y:y+m, x:x+m, 2] = (1-warp_mask) * alt_img[y:y+m, x:x+m, 2] + (warp_mask) * (alt_img[y:y+m, x:x+m, 2] * (1-mask) + mask * gen_img[:, :, 2])  #*255.0
         
         # hard-edge replacement
-#        alt_img[y:y+m, x:x+m, 0] = gen_img[:, :, 0] #*255.0
-#        alt_img[y:y+m, x:x+m, 1] = gen_img[:, :, 1]  #*255.0
-#        alt_img[y:y+m, x:x+m, 2] = gen_img[:, :, 2]  #*255.0
+        #alt_img[y:y+m, x:x+m, 0] = gen_img[:, :, 0] #*255.0
+        #alt_img[y:y+m, x:x+m, 1] = gen_img[:, :, 1]  #*255.0
+        #alt_img[y:y+m, x:x+m, 2] = gen_img[:, :, 2]  #*255.0
         
         if _debug:
         #    cv2.namedWindow("Replacer")
-            cv2.rectangle(alt_img,(x,y),(x+w,y+h),(0,255,0),1)
+           # cv2.rectangle(alt_img,(x,y),(x+w,y+h),(0,255,0),1)
             cv2.imshow('Replaced face', cv2.cvtColor(alt_img, cv2.COLOR_RGB2BGR))
-            cv2.waitKey(0)
+            cv2.waitKey(200)
             #cv2.destroyAllWindows()
-            
-        print(self)
+            print(self)
+        
         return alt_img
         
     # Origin: https://gist.github.com/andrewgiessel/4635563
@@ -118,9 +163,26 @@ class Replacer:
             x0 = center[0]
             y0 = center[1]
         
-        fwhm = size *0.85 #((size//2) - 1) + 0.8
+        fwhm = size *.75 # *0.85 #((size//2) - 1) + 0.8
     
         return np.exp(-4*np.log(2) * ((x-x0)**2 + (y-y0)**2) / fwhm**2)
+        
+    def generateEpanechnikMask(self,  size, width):
+        
+        x = np.arange(0, size, 1, float)
+        y = x[:,np.newaxis]
+        
+        pass
+        
+    def warpGaussianMask(self,  mask,  gen_img):
+        mask[gen_img[:,  :, 0] == 0] = 0
+        return mask
+        
+    def generateWarpMask(self, gen_img, _debug=False):
+        warp_mask = copy.copy(gen_img)[:,  :,  0];
+        warp_mask[warp_mask>0]=1
+        warp_mask = warp_mask.astype(float)
+        return warp_mask
         
     def __str__(self):
         return "{}".format(self.__class__.__name__) 
