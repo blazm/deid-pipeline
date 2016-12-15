@@ -162,7 +162,6 @@ def main():
         #debug
         #gauss = r.generateGaussianMask(4)
         #print("Gauss kernel:")
-        print('.')
         
         # TODO: for loop for all images in ./in/ directory OR all frames in provided video
          # detections format - list of tuples: [(x,y,w,h), ...]

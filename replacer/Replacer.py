@@ -57,7 +57,7 @@ class Replacer:
     def replace_v2(self,  src_img,  src_roi,  gen_img,  _debug=False):
         
         x, y, w, h = src_roi
-        m = max(w, h)
+        m = min(w, h)
         mask = self.generateGaussianMask(m)
         
         x, y, w, h = src_roi
@@ -107,7 +107,7 @@ class Replacer:
     def replace(self, src_img, src_roi, gen_img, _debug=False, mask=None):  
         x, y, w, h = src_roi
         # TODO: properly center the mask on larger axis
-        m = max(w, h)
+        m = min(w, h)
         if mask is None:
             mask = self.generateGaussianMask(m)
             #mask = self.warpGaussianMask(mask, gen_img)
@@ -119,13 +119,15 @@ class Replacer:
         
         alt_img = copy.copy(src_img)
         
-        
         # blend generated image with Gaussian mask
         try:
             alt_img[y:y+m, x:x+m, 0] = alt_img[y:y+m, x:x+m, 0] * (1-mask) + mask * gen_img[:, :, 0] #*255.0
             alt_img[y:y+m, x:x+m, 1] = alt_img[y:y+m, x:x+m, 1] * (1-mask) + mask * gen_img[:, :, 1]  #*255.0
             alt_img[y:y+m, x:x+m, 2] = alt_img[y:y+m, x:x+m, 2] * (1-mask) + mask * gen_img[:, :, 2]  #*255.0
         except:
+            import sys
+            #print("ERROR: Replacer - gen img swap failed!")
+            print("Replacer - replace - unexpected error:", sys.exc_info()[0])
             pass
        # alt_img[y:y+m, x:x+m, 0] = (1-warp_mask) * alt_img[y:y+m, x:x+m, 0] + (warp_mask) * (alt_img[y:y+m, x:x+m, 0] * (1-mask) + mask * gen_img[:, :, 0]) #*255.0
        # alt_img[y:y+m, x:x+m, 1] = (1-warp_mask) * alt_img[y:y+m, x:x+m, 1] + (warp_mask) * (alt_img[y:y+m, x:x+m, 1] * (1-mask) + mask * gen_img[:, :, 1])  #*255.0
@@ -142,7 +144,7 @@ class Replacer:
             cv2.imshow('Replaced face', cv2.cvtColor(alt_img, cv2.COLOR_RGB2BGR))
             cv2.waitKey(200)
             #cv2.destroyAllWindows()
-            print(self)
+            #print(self)
         
         return alt_img
         
@@ -168,7 +170,7 @@ class Replacer:
         return np.exp(-4*np.log(2) * ((x-x0)**2 + (y-y0)**2) / fwhm**2)
         
     def generateEpanechnikMask(self,  size, width):
-        
+        # TODO
         x = np.arange(0, size, 1, float)
         y = x[:,np.newaxis]
         
