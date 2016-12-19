@@ -13,8 +13,8 @@ if __name__ == '__main__':
     # offline feature extraction
     #p.extractFeatures(img_db_dir='./DB/rafd2-frontal/', csv_out_filename='./DB/feat-db.csv')
   
-    _GENERATE_DB = False
-    _DEBUG = True
+    _GENERATE_DB = True
+    _DEBUG = False
     
     frontal_sequences = ['P1E_S1_C1',  'P1E_S2_C2',  'P1E_S3_C3',  'P1E_S4_C1', 'P1L_S1_C1', 'P1L_S2_C2', 'P1L_S3_C3', 
                         'P1L_S4_C1', 'P2E_S1_C3', 'P2E_S2_C2', 'P2E_S3_C1', 'P2E_S4_C2',  'P2L_S1_C1', 'P2L_S2_C2', 'P2L_S3_C3', 'P2L_S4_C2']
@@ -27,17 +27,28 @@ if __name__ == '__main__':
     
     p = Pipeline(feat_db_path, model_path)
     print("DE-ID Pipeline started.")
-    for i, seq in enumerate(frontal_sequences):
-        img_dir_in = os.path.join("./in/", seq)
-        img_dir_out = os.path.join("./out/", seq)
-        annotation_file = os.path.join("./in/groundtruth/", (seq+'xml'))
-        p.processSequence(img_dir_in, img_dir_out, _GENERATE_DB, _DEBUG)
-        update_progress(i, len(frontal_sequences))
     
-#    for i, seq in enumerate(all_sequences):
-#        if seq not in frontal_sequences:
-#            #TODO
-#            pass
+    # DEBUG & TESTING
+    seq = frontal_sequences[0]
+    img_dir_in = os.path.join("./in/", seq)
+    img_dir_out = os.path.join("./out/", seq)
+    groundtruth_path = os.path.join("./in/groundtruth/", (seq+'.xml'))
+    p.processSequence(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB, _DEBUG)
+       
+    # FINAL RUN, when everything is ready
+    if False:
+        for i, seq in enumerate(frontal_sequences):
+            img_dir_in = os.path.join("./in/", seq)
+            img_dir_out = os.path.join("./out/", seq)
+            groundtruth_path = os.path.join("./in/groundtruth/", (seq+'.xml'))
+            p.processSequence(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB, _DEBUG)
+            update_progress(i, len(frontal_sequences))
     
+        # extract only non frontals from the groundtruth
+    #    for i, seq in enumerate(all_sequences):
+    #        if seq not in frontal_sequences:
+    #            #TODO
+    #            pass
+        
     if _DEBUG:
         cv2.destroyAllWindows()

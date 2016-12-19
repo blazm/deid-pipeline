@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 from scipy import misc
 import copy
 import numpy as np
@@ -41,10 +42,33 @@ class Pipeline:
         w = 2*w
         h = 2*h
         
-        # TODO: check if dimensions still inside image!
-        
         return (x, y, w, h)
-    
+        
+    def crop_from(self, img, roi):
+        x, y, w, h = roi
+        sx, sy, sw, sh = roi         
+        ih, iw, ch = img.shape
+        # TODO: check borders
+        sub_img = np.zeros((h, w, ch), dtype=img.dtype)
+        
+        dx = 0
+        if (x < 0):
+            dx = abs(x)
+            x = 0
+            w = w - dx
+        elif (x+w > iw):
+            w = iw - x
+            
+        dy = 0
+        if (y < 0):
+            dy = abs(y)
+            y = 0
+            h = h - dy
+        elif (y+h > ih):
+            h = ih - y
+        
+        sub_img[dy:dy+h, dx:dx+w, :] = img[y:y+h, x:x+w, :] # take subarray from source image
+        return sub_img
         
     def extractFeatures(self,  img_db_dir='./DB/rafd2-frontal/', csv_out_filename='./DB/feat-db.csv'):
         '''Offline method to extract features from rafd2 database using VGG Extractor. Results are exported in the .csv file '''
@@ -69,11 +93,13 @@ class Pipeline:
         
         for file_name in file_list:
             img = misc.imread(join(img_db_dir, file_name))
-            detections = self.d.detect(img,  _debug=False)
-            # personID = parse.parse(rafd_name_format, file_name)[1]
-            personID = int(file_name.split('_')[1])
+            ih, iw, ch = img.shape
             
-            print("PersonID: {}".format(personID))
+            detections = self.d.detect(img,  _debug=False)
+            # person_id = parse.parse(rafd_name_format, file_name)[1]
+            person_id = int(file_name.split('_')[1])
+            
+            print("PersonID: {}".format(person_id))
             
             if (len(detections) == 0):
                 print("ERROR: Face was not detected! {}".format(file_name))
@@ -84,10 +110,12 @@ class Pipeline:
                 # TODO: resize to 2x the width / height 
                 x, y, w, h = self.resize_roi_2x((x, y, w, h))
                 
-                sub_img = img[y:y+h, x:x+w, :] # take subarray from source image
+                #sub_img = img[y:y+h, x:x+w, :] # take subarray from source image
+                sub_img = self.crop_from(img, (x, y, w, h))
+                
                 features = self.e.extract(sub_img)
-                features = np.insert(features, 0,  personID) # add person ID
-                #features = np.hstack((np.array([personID]),  features));
+                features = np.insert(features, 0,  person_id) # add person ID
+                #features = np.hstack((np.array([person_id]),  features));
                 #print("Features_shape: {}",  (features.shape))
                 
                 if (feat_db is None): feat_db = features
@@ -101,13 +129,63 @@ class Pipeline:
                     newline='\n',  footer='end of file',  
                     comments='# ', header='ID, features (Generated featDB from Rafdb using DeepFace VGG)')
          
-    def generateNonFrontals(self, img_dir_in, img_dir_out):
+    def generateNonFrontals(self, img_dir_in, img_dir_out, groundtruth_xml_path):
         pass
          
-    def loadAnnotations(self, annotation_file):
-        pass
+    def loadGroundTruthXML(self, groundtruth_xml_path):
+        import xml.etree.ElementTree as ET
+        from math import sqrt
+
+        def bb_from_xy(x1, y1, x2, y2):
+            x = int((x1 + x2)/2.)
+            y = int((y1 + y2)/2.)
+            d = int(sqrt((x1-x2)**2 + (y1-y2)**2))
+            return (x-2*d,  y-2*d, 3*d, 5*d)
         
-    def processSequence(self, img_dir_in, img_dir_out, _GENERATE_DB, _DEBUG):
+        f = open(groundtruth_xml_path, 'r')
+        data = f.read()
+        f.close()
+        
+        root = ET.fromstring(data) 
+        frame_dict = defaultdict(lambda: []) # default values are empty lists
+        
+        for frame in root.findall('./frame'):
+            frame_num = frame.attrib.get('number')
+            
+            persons = []
+            for person in frame.findall('./person'):            
+                if person is None: continue
+                
+                person_id = person.attrib.get('id')
+                
+                leftEye = person.find('leftEye')
+                xl, yl = int(leftEye.attrib.get('x')), int(leftEye.attrib.get('y'))
+                
+                rightEye = person.find('rightEye')
+                xr, yr = int(rightEye.attrib.get('x')), int(rightEye.attrib.get('y'))
+
+                bb = bb_from_xy(xl, yl, xr, yr)
+                persons.append((person_id,  bb))
+                
+            if persons:
+                frame_dict[frame_num] = persons
+            
+        return frame_dict
+        
+    def overlappingRatio(self,  roiA,  roiB):
+        '''Returns overlapping ration of two ROIs (x,y,w,h)'''
+        xA, yA, wA, hA = roiA
+        xB, yB, wB, hB = roiB
+        SI = max(0, min(xA+wA, xB+wB) - max(xA, xB)) * max(0, min(yA+hA, yB+hB) - max(yA, yB))
+        SA = wA*hA
+        SB = wB*hB
+        SU = SA + SB - SI
+        return SI / SU
+        
+    def processSequence(self, img_dir_in, img_dir_out, groundtruth_xml_path, _GENERATE_DB, _DEBUG):
+        
+        sequence_name = os.path.split(img_dir_in)[1]
+        groundtruth_dict = self.loadGroundTruthXML(groundtruth_xml_path)
         
         #img_dir_in = "./in/P1E_S1_C1/"
         #img_dir_out = "./out/P1E_S1_C1/"
@@ -120,15 +198,18 @@ class Pipeline:
         if not os.path.exists(os.path.join(img_dir_out,  'de_identified')):
             os.makedirs(os.path.join(img_dir_out,  'de_identified'))
         
-        
         images = []
         for file in os.listdir(img_dir_in):
             if file.endswith(".jpg"):
                 images.append(file)
 
-        #print(images)
-        
         for img_name in sorted(images):
+            frame_number = img_name.split('.')[0]
+            annotated_people = groundtruth_dict[frame_number]
+            
+            if not annotated_people:
+                continue
+            
             img = misc.imread(os.path.join(img_dir_in, img_name))
             
             #img = misc.imread('./in/people3.jpg')
@@ -142,36 +223,46 @@ class Pipeline:
             if _DEBUG:
                 cv2.imshow('Image input', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
                 #cv2.waitKey(1)
-            #debug
-            #gauss = r.generateGaussianMask(4)
-            #print("Gauss kernel:")
-            
+        
             # TODO: for loop for all images in ./in/ directory OR all frames in provided video
-             # detections format - list of tuples: [(x,y,w,h), ...]
+            # detections format - list of tuples: [(x,y,w,h), ...]
             detections = self.d.detect(src_img,  _debug=_DEBUG)
             
             #print("Detections length: {}".format(len(detections)))
-            ix = 0
-            for x, y, w, h in detections:
+            for ix, roi in enumerate(detections):
+                x, y, w, h = roi
+                
+                # find most overlapped groundtruth ID (if there are multiple people in sequence)
+                max_ratio = 0
+                selected_person_id = None
+                for person in annotated_people:
+                    person_id, face_roi = person
+                    r = self.overlappingRatio(roi,  face_roi)
+                    if r > max_ratio:
+                        max_ratio = r
+                        selected_person_id = person_id
+                
+                if not selected_person_id:
+                    print("Warning: personID not found for frame {} in detection {}!".format(frame_number, ix))
+                    continue
                 #print(x, y, w, h)
                 
-                sub_img = img[y:y+h, x:x+w, :] # take subarray from source image
+                #sub_img = img[y:y+h, x:x+w, :] # take subarray from source image
+                sub_img = self.crop_from(img, (x, y, w, h))
                 
                 if _GENERATE_DB:
-                    misc.toimage(sub_img, cmin=0.0, cmax=255.0).save(os.path.join(img_dir_out, "raw_detection", ("{}_".format(ix) + img_name)))
-            
+                    misc.toimage(sub_img, cmin=0.0, cmax=255.0).save(
+                    os.path.join(img_dir_out, "raw_detection", ("{}-{}-".format(selected_person_id, sequence_name) + img_name)))
                 
                 x2, y2, w2, h2 = self.resize_roi_2x((x, y, w, h))
                 
                 # TODO: check bounds!
-                feat_img = img[y2:y2+h2, x2:x2+w2,  :]
+                #feat_img = img[y2:y2+h2, x2:x2+w2,  :]
+                feat_img = self.crop_from(img, (x2, y2, w2, h2))
                 
-                #if _GENERATE_DB:
-                #    misc.toimage(feat_img, cmin=0.0, cmax=255.0).save(os.path.join(img_dir_out, "resize_roi_2x", ("{}_".format(ix) + img_name)))
-                
-                #debug
-                #plt.imshow(256-sub_img, interpolation='nearest')
-                #plt.show()
+                if _GENERATE_DB:
+                    misc.toimage(feat_img, cmin=0.0, cmax=255.0).save(
+                    os.path.join(img_dir_out, "resize_roi_2x", ("{}-{}-".format(selected_person_id, sequence_name) + img_name)))
                 
                 # extract features from subimage
                 features = self.e.extract(feat_img)
@@ -191,7 +282,9 @@ class Pipeline:
                 
                 if len(gen_detection) == 1:
                     gx, gy, gw, gh = gen_detection[0]
-                    gen_img = gen_img[gy:gy+gh, gx:gx+gw, :]
+                    #gen_img = gen_img[gy:gy+gh, gx:gx+gw, :]
+                    gen_img = self.crop_from(gen_img, (gx, gy, gw, gh))
+              
                     # resize gen img to match sub_img size
                     
                     #print("GEN IMG shape before: {}".format(gen_img.shape))
@@ -199,19 +292,28 @@ class Pipeline:
                     
                     #print("GEN IMG shape after: {}".format(gen_img.shape))
                     
+                    
+                    
                     # TODO: replace the faces in original image
-                    alt_img = self.r.replace_v2(img, (x, y, w, h),  gen_img, _debug=_DEBUG)
+                    try:
+                        alt_img = self.r.replace_v2(img, (x, y, w, h), gen_img, _debug=_DEBUG)
+                
+                    except:
+                        print("SRC ROI: {}".format((x, y, w, h)))
+                        print("GENERATED: {}".format(gen_img.shape))
                 
                     if _GENERATE_DB:
-                        misc.toimage(alt_img[y:y+h, x:x+w, :], cmin=0.0, cmax=255.0).save(os.path.join(img_dir_out, "de_identified", ("{}_".format(ix) + img_name)))
+                        #db_img = alt_img[y:y+h, x:x+w, :]
+                        db_img = self.crop_from(alt_img, (x, y, w, h))
+                        misc.toimage(db_img, cmin=0.0, cmax=255.0).save(
+                        os.path.join(img_dir_out, "de_identified",  ("{}-{}-".format(selected_person_id, sequence_name) + img_name)))
                 else:
                     alt_img = img
                     print("Warning: Number of face detections - {} - on generated image differs from 1.".format(len(gen_detection)))
                 
                 # DONE: swap alt_img and img for multiple detections on single image
                 img = alt_img
-                ix = ix+1
-            
+                
             #    cv2.namedWindow("Detector")
             #cv2.imshow('Sequence window', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         

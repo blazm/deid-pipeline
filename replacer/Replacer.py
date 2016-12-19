@@ -60,7 +60,6 @@ class Replacer:
         m = min(w, h)
         mask = self.generateGaussianMask(m)
         
-        x, y, w, h = src_roi
         size = (w, h)
         # convert to use dimensions in dlib.rectangle
         ix = uint32(x).item()
@@ -121,14 +120,15 @@ class Replacer:
         
         # blend generated image with Gaussian mask
         try:
-            alt_img[y:y+m, x:x+m, 0] = alt_img[y:y+m, x:x+m, 0] * (1-mask) + mask * gen_img[:, :, 0] #*255.0
-            alt_img[y:y+m, x:x+m, 1] = alt_img[y:y+m, x:x+m, 1] * (1-mask) + mask * gen_img[:, :, 1]  #*255.0
-            alt_img[y:y+m, x:x+m, 2] = alt_img[y:y+m, x:x+m, 2] * (1-mask) + mask * gen_img[:, :, 2]  #*255.0
+            alt_img[y:y+h, x:x+w, 0] = alt_img[y:y+h, x:x+w, 0] * (1-mask) + mask * gen_img[:, :, 0] #*255.0
+            alt_img[y:y+h, x:x+w, 1] = alt_img[y:y+h, x:x+w, 1] * (1-mask) + mask * gen_img[:, :, 1]  #*255.0
+            alt_img[y:y+h, x:x+w, 2] = alt_img[y:y+h, x:x+w, 2] * (1-mask) + mask * gen_img[:, :, 2]  #*255.0
         except:
             import sys
-            #print("ERROR: Replacer - gen img swap failed!")
-            print("Replacer - replace - unexpected error:", sys.exc_info()[0])
-            pass
+            
+            print("ERROR: Replacer - replace - unexpected error:", sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2])
+            print("ERROR: {}, {}, {}".format(gen_img[:, :, 0].shape, alt_img[y:y+h, x:x+w, 0].shape, mask.shape))
+            raise
        # alt_img[y:y+m, x:x+m, 0] = (1-warp_mask) * alt_img[y:y+m, x:x+m, 0] + (warp_mask) * (alt_img[y:y+m, x:x+m, 0] * (1-mask) + mask * gen_img[:, :, 0]) #*255.0
        # alt_img[y:y+m, x:x+m, 1] = (1-warp_mask) * alt_img[y:y+m, x:x+m, 1] + (warp_mask) * (alt_img[y:y+m, x:x+m, 1] * (1-mask) + mask * gen_img[:, :, 1])  #*255.0
        # alt_img[y:y+m, x:x+m, 2] = (1-warp_mask) * alt_img[y:y+m, x:x+m, 2] + (warp_mask) * (alt_img[y:y+m, x:x+m, 2] * (1-mask) + mask * gen_img[:, :, 2])  #*255.0
