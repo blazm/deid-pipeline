@@ -129,18 +129,50 @@ class Pipeline:
                     newline='\n',  footer='end of file',  
                     comments='# ', header='ID, features (Generated featDB from Rafdb using DeepFace VGG)')
          
-    def generateNonFrontals(self, img_dir_in, img_dir_out, groundtruth_xml_path):
-        pass
+    def generateGroundTruth(self, img_dir_in, img_dir_out, groundtruth_xml_path, _GENERATE_DB = True):
+        if not os.path.exists(img_dir_out):
+            os.makedirs(img_dir_out)
+        if not os.path.exists(os.path.join(img_dir_out,  'raw_groundtruth')):
+            os.makedirs(os.path.join(img_dir_out,  'raw_groundtruth'))
+        
+        sequence_name = os.path.split(img_dir_in)[1]
+        print(sequence_name)
+        groundtruth_dict = self.loadGroundTruthXML(groundtruth_xml_path)
+        print(groundtruth_dict.keys())
+        images = []
+        for file in os.listdir(img_dir_in):
+            if file.endswith(".jpg"):
+                images.append(file)
+        print("{}".format(len(images)))
+        for img_name in sorted(images):
+            frame_number = img_name.split('.')[0]
+            if int(frame_number) % 5 != 0: continue
+            
+            #print(frame_number)
+            annotated_people = groundtruth_dict[frame_number]
+            if not annotated_people: continue
+            #print("Annotated: {}".format(annotated_people))
+            
+            img = misc.imread(os.path.join(img_dir_in, img_name))
+        
+            for person in annotated_people:
+                person_id, face_roi = person
+                sub_img = self.crop_from(img, face_roi)
+                
+                if _GENERATE_DB:
+                    misc.toimage(sub_img, cmin=0.0, cmax=255.0).save(
+                    os.path.join(img_dir_out, "raw_groundtruth", ("{}-{}-".format(person_id, sequence_name) + img_name)))
          
     def loadGroundTruthXML(self, groundtruth_xml_path):
         import xml.etree.ElementTree as ET
-        from math import sqrt
+        from math import sqrt, ceil
 
         def bb_from_xy(x1, y1, x2, y2):
+            '''Input: two eye coords, Output: face ROI'''
             x = int((x1 + x2)/2.)
             y = int((y1 + y2)/2.)
             d = int(sqrt((x1-x2)**2 + (y1-y2)**2))
-            return (x-2*d,  y-2*d, 3*d, 5*d)
+            return (x-ceil(1.5*d),  y-ceil(1.5*d), 3*d, ceil(3.5*d))
         
         f = open(groundtruth_xml_path, 'r')
         data = f.read()
@@ -158,15 +190,21 @@ class Pipeline:
                 
                 person_id = person.attrib.get('id')
                 
-                leftEye = person.find('leftEye')
-                xl, yl = int(leftEye.attrib.get('x')), int(leftEye.attrib.get('y'))
-                
-                rightEye = person.find('rightEye')
-                xr, yr = int(rightEye.attrib.get('x')), int(rightEye.attrib.get('y'))
+                try:
+                    leftEye = person.find('leftEye')
+                    #if leftEye:
+                    xl, yl = int(leftEye.attrib.get('x')), int(leftEye.attrib.get('y'))
+                    rightEye = person.find('rightEye')
+                    #if rightEye:
+                    xr, yr = int(rightEye.attrib.get('x')), int(rightEye.attrib.get('y'))
 
-                bb = bb_from_xy(xl, yl, xr, yr)
-                persons.append((person_id,  bb))
-                
+                    #if rightEye and leftEye:
+                    bb = bb_from_xy(xl, yl, xr, yr)
+                    persons.append((person_id,  bb))
+                except:
+                    import sys
+                    print("ERROR: Detector - detect - unexpected error:", sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2])
+            
             if persons:
                 frame_dict[frame_num] = persons
             
@@ -183,7 +221,6 @@ class Pipeline:
         return SI / SU
         
     def processSequence(self, img_dir_in, img_dir_out, groundtruth_xml_path, _GENERATE_DB, _DEBUG):
-        
         sequence_name = os.path.split(img_dir_in)[1]
         groundtruth_dict = self.loadGroundTruthXML(groundtruth_xml_path)
         
@@ -205,12 +242,15 @@ class Pipeline:
 
         for img_name in sorted(images):
             frame_number = img_name.split('.')[0]
-            annotated_people = groundtruth_dict[frame_number]
+            if int(frame_number) % 5 != 0: continue # take just one image per second
             
-            if not annotated_people:
-                continue
+            annotated_people = groundtruth_dict[frame_number]
+            if not annotated_people: continue
             
             img = misc.imread(os.path.join(img_dir_in, img_name))
+            
+            for person in annotated_people:
+                person_id, face_roi = person
             
             #img = misc.imread('./in/people3.jpg')
             #img = misc.imread('./in/P1E_S1_C1/00001154.jpg')
@@ -297,7 +337,6 @@ class Pipeline:
                     # TODO: replace the faces in original image
                     try:
                         alt_img = self.r.replace_v2(img, (x, y, w, h), gen_img, _debug=_DEBUG)
-                
                     except:
                         print("SRC ROI: {}".format((x, y, w, h)))
                         print("GENERATED: {}".format(gen_img.shape))

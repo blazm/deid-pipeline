@@ -51,5 +51,3 @@ pathGT = './in/groundtruth/P1E_S1_C2.xml'
 frames = bb_from_gt(pathGT)
 print(frames)
 
-#data = """your xml here"""
-

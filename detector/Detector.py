@@ -21,27 +21,32 @@ class Detector:
         #face_cascade = cv2.CascadeClassifier(join(haarpath, 'haarcascade_frontalface_default.xml'))
         #eye_cascade = cv2.CascadeClassifier(join(haarpath, 'haarcascade_eye.xml'))
     
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
-        
-        for (x, y, w, h) in faces:
+        try:
+            # Wxception "unhandled TypeError" src data type = 17 is not supported
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
-            self.rois.append((x, y, w, h))
+            faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
             
-            cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),1)
-            roi_gray = gray[y:y+h, x:x+w]
-            #roi_color = img[y:y+h, x:x+w]
-            #eyes = self.eye_cascade.detectMultiScale(roi_gray)
-            #for (ex,ey,ew,eh) in eyes:
-            #    cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
+            for (x, y, w, h) in faces:
+                
+                self.rois.append((x, y, w, h))
+                
+                cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),1)
+                roi_gray = gray[y:y+h, x:x+w]
+                #roi_color = img[y:y+h, x:x+w]
+                #eyes = self.eye_cascade.detectMultiScale(roi_gray)
+                #for (ex,ey,ew,eh) in eyes:
+                #    cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
 
-        if _debug:
-            if len(self.rois) > 0:
-        #    cv2.namedWindow("Detector")
-                cv2.imshow('Detected face / eyes', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-                cv2.waitKey(1)
-        #    cv2.destroyAllWindows()
+            if _debug:
+                if len(self.rois) > 0:
+            #    cv2.namedWindow("Detector")
+                    cv2.imshow('Detected face / eyes', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+                    cv2.waitKey(1)
+            #    cv2.destroyAllWindows()
+        except:
+            import sys
+            print("ERROR: Detector - detect - unexpected error:", sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2])
         
         return self.rois
         
