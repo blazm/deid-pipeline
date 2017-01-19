@@ -34,7 +34,7 @@ class Replacer:
         # define the upper and lower boundaries of the HSV pixel
         # intensities to be considered 'skin'
         # B, G, R
-        lower = np.array([0, 15, 30], dtype = "uint8")
+        lower = np.array([0, 10, 20], dtype = "uint8")
         upper = np.array([200, 255, 255], dtype = "uint8")
         
         converted = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -42,12 +42,23 @@ class Replacer:
  
         # apply a series of erosions and dilations to the mask
         # using an elliptical kernel
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-        skinMask = cv2.erode(skinMask, kernel, iterations = 3)
-        skinMask = cv2.dilate(skinMask, kernel, iterations = 2)
-     
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        skinMask = cv2.dilate(skinMask, kernel, iterations = 1)
+        skinMask = cv2.erode(skinMask, kernel, iterations = 2)
+        skinMask = cv2.dilate(skinMask, kernel, iterations = 1)
+        skinMask = cv2.erode(skinMask, kernel, iterations = 2)
+        skinMask = cv2.dilate(skinMask, kernel, iterations = 1)
+        skinMask = cv2.erode(skinMask, kernel, iterations = 2)
+        #skinMask = cv2.morphologyEx(skinMask, cv2.MORPH_CLOSE, kernel)
+        #skinMask = cv2.morphologyEx(skinMask, cv2.MORPH_OPEN, kernel)       
+        #skinMask = cv2.morphologyEx(skinMask, cv2.MORPH_CLOSE, kernel)
+        #skinMask = cv2.morphologyEx(skinMask, cv2.MORPH_OPEN, kernel)
+        
+        #skinMask = cv2.erode(skinMask, kernel, iterations = 1)
+        
         # blur the mask to help remove noise, then apply the
         # mask to the frame
+       #
         skinMask = cv2.GaussianBlur(skinMask, (3, 3), 0)
         skin = cv2.bitwise_and(img, img, mask = skinMask)
         mask = cv2.bitwise_and(mask, mask, mask = skinMask)

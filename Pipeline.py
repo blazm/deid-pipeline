@@ -136,14 +136,14 @@ class Pipeline:
             os.makedirs(os.path.join(img_dir_out,  'raw_groundtruth'))
         
         sequence_name = os.path.split(img_dir_in)[1]
-        print(sequence_name)
+        #print(sequence_name)
         groundtruth_dict = self.loadGroundTruthXML(groundtruth_xml_path)
-        print(groundtruth_dict.keys())
+        #print(groundtruth_dict.keys())
         images = []
         for file in os.listdir(img_dir_in):
             if file.endswith(".jpg"):
                 images.append(file)
-        print("{}".format(len(images)))
+        #print("{}".format(len(images)))
         for img_name in sorted(images):
             frame_number = img_name.split('.')[0]
             if int(frame_number) % 5 != 0: continue

@@ -193,18 +193,20 @@ if __name__ == '__main__':
     print("DE-ID Pipeline started.")
     
     # DEBUG & TESTING
-    seq = frontal_sequences[5]
-    img_dir_in = os.path.join("./in/", seq)
-    img_dir_out = os.path.join("./out/", seq)
-    groundtruth_path = os.path.join("./in/groundtruth/", (seq+'.xml'))
-    #print(groundtruth_path)
-    #p.processSequence(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB, _DEBUG)
-    #p.generateGroundTruth(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB)
-    # TODO:
-    #samplePairs(os.path.join(img_dir_out, 'raw_groundtruth'), 300)
+    
+    if _DEBUG:
+        seq = frontal_sequences[5]
+        img_dir_in = os.path.join("./in/", seq)
+        img_dir_out = os.path.join("./out/", seq)
+        groundtruth_path = os.path.join("./in/groundtruth/", (seq+'.xml'))
+        #print(groundtruth_path)
+        p.processSequence(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB, _DEBUG)
+        p.generateGroundTruth(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB)
+        # TODO:
+        #samplePairs(os.path.join(img_dir_out, 'raw_groundtruth'), 300)
        
     # FINAL RUN, when everything is ready
-    if False:
+    if not _DEBUG:
         for i, seq in enumerate(frontal_sequences):
             img_dir_in = os.path.join("./in/", seq)
             #img_dir_out = os.path.join("./out/", seq)
@@ -223,7 +225,7 @@ if __name__ == '__main__':
                 p.generateGroundTruth(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB)
             update_progress(i, len(all_sequences))
             
-    samplePairs(os.path.join("./out/", "deid-eval-db",  "de_identified"), os.path.join("./out/", "deid-eval-db",  "raw_groundtruth"), num_pairs=300, num_folds=10)
+        samplePairs(os.path.join("./out/", "deid-eval-db",  "de_identified"), os.path.join("./out/", "deid-eval-db",  "raw_groundtruth"), num_pairs=300, num_folds=10)
         
     if _DEBUG:
         cv2.destroyAllWindows()

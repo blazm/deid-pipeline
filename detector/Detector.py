@@ -31,7 +31,7 @@ class Detector:
                 
                 self.rois.append((x, y, w, h))
                 
-                cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),1)
+                cv2.rectangle(img,(x,y),(x+w,y+h),(255,255,255),1)
                 roi_gray = gray[y:y+h, x:x+w]
                 #roi_color = img[y:y+h, x:x+w]
                 #eyes = self.eye_cascade.detectMultiScale(roi_gray)
