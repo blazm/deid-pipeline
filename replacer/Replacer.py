@@ -176,7 +176,8 @@ class Replacer:
             x0 = center[0]
             y0 = center[1]
         
-        fwhm = size *.75 # *0.85 #((size//2) - 1) + 0.8
+        #fwhm = ((size//2) - 1) + 0.8 # size  *.75 # *0.85 #
+        fwhm = size * 0.65
     
         return np.exp(-4*np.log(2) * ((x-x0)**2 + (y-y0)**2) / fwhm**2)
         

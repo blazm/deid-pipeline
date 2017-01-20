@@ -249,8 +249,8 @@ class Pipeline:
             
             img = misc.imread(os.path.join(img_dir_in, img_name))
             
-            for person in annotated_people:
-                person_id, face_roi = person
+            #for person in annotated_people:
+            #    person_id, face_roi = person
             
             #img = misc.imread('./in/people3.jpg')
             #img = misc.imread('./in/P1E_S1_C1/00001154.jpg')
@@ -309,10 +309,13 @@ class Pipeline:
                 #print("Features shape: {}".format(features.shape))
                 
                 # match with best entry in feature database
-                best_match = self.m.match(features)
+                max_id_limit = 57 # DEBUG: person_id currently limited to max 56 - Generator hardcoded identity len is 57
+                best_match = self.m.match(features, max_id_limit, selected_person_id)
                 #print("Best match ID: {}".format(best_match))
-                if best_match >= 57: # DEBUG: person_id currently limited to max 56 - Generator hardcoded identity len is 57
+                if best_match >= 57:
+                    print("Warning: BestMatch exceeds maximum - {}".format(best_match))
                     best_match = 1
+                
                 
                 gen_img = self.g.generate(id=best_match)
                 
@@ -321,7 +324,8 @@ class Pipeline:
                 #print("Generator detections: {}".format(gen_detection))
                 
                 if len(gen_detection) == 1:
-                    gx, gy, gw, gh = gen_detection[0]
+                    gx, gy, gw, gh = gen_detection[0] # TODO: resize roi to cover full face?
+                    
                     #gen_img = gen_img[gy:gy+gh, gx:gx+gw, :]
                     gen_img = self.crop_from(gen_img, (gx, gy, gw, gh))
               
@@ -352,7 +356,9 @@ class Pipeline:
                 
                 # DONE: swap alt_img and img for multiple detections on single image
                 img = alt_img
-                
+            
+            # TODO: save whole frames fro article images
+        
             #    cv2.namedWindow("Detector")
             #cv2.imshow('Sequence window', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         
