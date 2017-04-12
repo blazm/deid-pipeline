@@ -61,10 +61,10 @@ conda create -n python35 python=3.5 anaconda
 source activate python35
 
 # Install numpy, scipy
-pip3 install numpy, scipy
+pip install numpy, scipy
 
 # Download and install tqdm from https://github.com/noamraph/tqdm
-pip3 install git+https://github.com/noamraph/tqdm.git
+pip install git+https://github.com/noamraph/tqdm.git
 
 # get TensorFlow (GPU or CPU)
 # Ubuntu/Linux 64-bit, GPU enabled, Python 3.5
@@ -76,10 +76,10 @@ export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/gpu/tensorf
 export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp35-cp35m-linux_x86_64.whl
 
 # Install TensorFlow for Python 3
-pip3 install --ignore-installed --upgrade $TF_BINARY_URL
+pip install --ignore-installed --upgrade $TF_BINARY_URL
 
 # Install Keras
-pip3 install keras
+pip install keras
 
 # Enter python to check if all modules successfully imported in python
 python
@@ -102,7 +102,9 @@ To run training or generating, please see the scripts generate.sh, train_once.sh
 ```
 #!bash
 # Install opencv3 to Anaconda
-conda install -c menpo opencv3
+conda install -n python35 -c menpo opencv3
+# Install dlib
+conda install -n python35 -c menpo dlib=18.18
 ```
 
 ### Matcher dependencies ###
