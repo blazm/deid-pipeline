@@ -62,14 +62,20 @@ class Replacer:
         skinMask = cv2.GaussianBlur(skinMask, (3, 3), 0)
         skin = cv2.bitwise_and(img, img, mask = skinMask)
         mask = cv2.bitwise_and(mask, mask, mask = skinMask)
-        
+         
         return skin, mask
     
     def replace_v2(self,  src_img,  src_roi,  gen_img,  _debug=False):
         
+        if _debug:
+            cv2.imshow('Generated before warp',  cv2.cvtColor(gen_img, cv2.COLOR_RGB2BGR))
+        
         x, y, w, h = src_roi
         m = min(w, h)
         mask = self.generateGaussianMask(m)
+        
+        if _debug:
+            cv2.imshow('Mask before warp',  mask)
         
         size = (w, h)
         # convert to use dimensions in dlib.rectangle
@@ -99,17 +105,26 @@ class Replacer:
        # print("H: {}".format(h)) # homography matrix
         
         gen_img_warp = cv2.warpPerspective(gen_img, self.homography, size)
+        
+        #cv2.imshow('Skin mask', mask)
+        #if _debug:
+        #    cv2.imshow('GenImWarp', cv2.cvtColor(gen_img_warp, cv2.COLOR_RGB2BGR))
+        
         mask = cv2.warpPerspective(mask, self.homography, (w, h))
+        
+        #if _debug:
+        #    cv2.imshow('WarpMask', mask)
         
         # generate skin color mask
         gen_img_warp, mask = self.generate_skin_mask(gen_img_warp, mask)
+        
         
         if _debug:
             x, y, w, h = src_roi
         #    cv2.namedWindow("Replacer")
             cv2.rectangle(gen_img_warp,(x,y),(x+w,y+h),(0,255,0),1)
             cv2.imshow('Warped gen face', cv2.cvtColor(gen_img_warp, cv2.COLOR_RGB2BGR))
-            cv2.waitKey(1)
+            #cv2.waitKey(1)
             #cv2.destroyAllWindows()
         
         return self.replace(src_img,  src_roi,  gen_img_warp, _debug, mask)
@@ -117,6 +132,7 @@ class Replacer:
     def replace(self, src_img, src_roi, gen_img, _debug=False, mask=None):  
         x, y, w, h = src_roi
         # TODO: properly center the mask on larger axis
+        
         m = min(w, h)
         if mask is None:
             mask = self.generateGaussianMask(m)
@@ -153,18 +169,18 @@ class Replacer:
         #    cv2.namedWindow("Replacer")
            # cv2.rectangle(alt_img,(x,y),(x+w,y+h),(0,255,0),1)
             cv2.imshow('Replaced face', cv2.cvtColor(alt_img, cv2.COLOR_RGB2BGR))
-            cv2.waitKey(200)
+            cv2.imshow('Kernel', mask)
+           # cv2.waitKey(200)
             #cv2.destroyAllWindows()
             #print(self)
         
         return alt_img
         
     # Origin: https://gist.github.com/andrewgiessel/4635563
-    def generateGaussianMask(self, size, fwhm = 3, center=None):
+    def generateGaussianMask(self, size, sigma=None, center=None):
         """ Make a square gaussian kernel.
         size is the length of a side of the square
-        fwhm is full-width-half-maximum, which
-        can be thought of as an effective radius.
+        sigma is stddev (effective radius).
         """
         
         x = np.arange(0, size, 1, float)
@@ -176,10 +192,8 @@ class Replacer:
             x0 = center[0]
             y0 = center[1]
         
-        #fwhm = ((size//2) - 1) + 0.8 # size  *.75 # *0.85 #
-        fwhm = size * 0.65
-    
-        return np.exp(-4*np.log(2) * ((x-x0)**2 + (y-y0)**2) / fwhm**2)
+        sigma = size / 5.0 # before size / 3.0 when 2 was not included in Gaussian
+        return  np.exp(-((x-x0)**2 + (y-y0)**2) / (2*sigma)**2)
         
     def generateEpanechnikMask(self,  size, width):
         # TODO

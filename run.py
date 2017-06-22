@@ -195,13 +195,35 @@ if __name__ == '__main__':
     # DEBUG & TESTING
     
     if _DEBUG:
-        seq = frontal_sequences[5]
+        # qualitative examples sequence
+        seq = 'P2L_S5_C2.1' # multiple people
+        #seq = 'P2L_S4_C2.1'
+        #seq = 'P1L_S2_C2' # also emotional sequence
+        #seq = 'P1E_S4_C1'
+        
+        #seq = 'P2E_S2_C2.1'
+        
+        # emotional sequence
+        #seq = 'P2L_S3_C3.1'
         img_dir_in = os.path.join("./in/", seq)
         img_dir_out = os.path.join("./out/", seq)
         groundtruth_path = os.path.join("./in/groundtruth/", (seq+'.xml'))
         #print(groundtruth_path)
-        p.processSequence(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB, _DEBUG)
-        p.generateGroundTruth(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB)
+        import time
+        
+        start = time.time()
+        print("Started [s]: ", start)
+        num_frames = p.processSequence(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB=False, _DEBUG=True, _LOAD_GT=False)
+        end = time.time()
+        print("Ended [s]: ", end)
+
+        #num_frames = len(os.listdir(img_dir_in))
+
+        elapsed = end - start
+        print("Elapsed [s]: ", elapsed)
+        print("Num. frames: ", num_frames)
+        print("FPS: ", (num_frames / elapsed))
+      #  p.generateGroundTruth(img_dir_in, img_dir_out, groundtruth_path, _GENERATE_DB)
         # TODO:
         #samplePairs(os.path.join(img_dir_out, 'raw_groundtruth'), 300)
        

@@ -30,8 +30,8 @@ class Detector:
             for (x, y, w, h) in faces:
                 
                 self.rois.append((x, y, w, h))
-                
-                cv2.rectangle(img,(x,y),(x+w,y+h),(255, 255, 255),1)
+                # cv2.rectangle(img,(x,y),(x+w,y+h),(255, 255, 255),1)
+                #
                 roi_gray = gray[y:y+h, x:x+w]
                 #roi_color = img[y:y+h, x:x+w]
                 #eyes = self.eye_cascade.detectMultiScale(roi_gray)
@@ -39,10 +39,10 @@ class Detector:
                 #    cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
 
             if _debug:
-                if len(self.rois) > 0:
+                #if len(self.rois) > 0:
             #    cv2.namedWindow("Detector")
-                    cv2.imshow('Detected face / eyes', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-                    cv2.waitKey(1)
+                 cv2.imshow('Detected face / eyes', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+                 cv2.waitKey(1)
             #    cv2.destroyAllWindows()
         except:
             import sys

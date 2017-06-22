@@ -1,10 +1,12 @@
 import os
 from collections import defaultdict
-from scipy import misc
+
 import copy
 import numpy as np
 
-import scipy.misc
+from scipy.misc import imresize
+from scipy.ndimage import imread
+
 import cv2 
 
 # to view images
@@ -92,7 +94,7 @@ class Pipeline:
         #feat_db = np.empty((0,3),  np.float32)
         
         for file_name in file_list:
-            img = misc.imread(join(img_db_dir, file_name))
+            img = imread(join(img_db_dir, file_name))
             ih, iw, ch = img.shape
             
             detections = self.d.detect(img,  _debug=False)
@@ -153,7 +155,7 @@ class Pipeline:
             if not annotated_people: continue
             #print("Annotated: {}".format(annotated_people))
             
-            img = misc.imread(os.path.join(img_dir_in, img_name))
+            img = imread(os.path.join(img_dir_in, img_name))
         
             for person in annotated_people:
                 person_id, face_roi = person
@@ -220,9 +222,11 @@ class Pipeline:
         SU = SA + SB - SI
         return SI / SU
         
-    def processSequence(self, img_dir_in, img_dir_out, groundtruth_xml_path, _GENERATE_DB, _DEBUG):
+    def processSequence(self, img_dir_in, img_dir_out, groundtruth_xml_path, _GENERATE_DB, _DEBUG, _LOAD_GT):
         sequence_name = os.path.split(img_dir_in)[1]
-        groundtruth_dict = self.loadGroundTruthXML(groundtruth_xml_path)
+        
+        if _LOAD_GT:
+            groundtruth_dict = self.loadGroundTruthXML(groundtruth_xml_path)
         
         #img_dir_in = "./in/P1E_S1_C1/"
         #img_dir_out = "./out/P1E_S1_C1/"
@@ -240,14 +244,17 @@ class Pipeline:
             if file.endswith(".jpg"):
                 images.append(file)
 
+        num_detected_frames = 0
+
         for img_name in sorted(images):
             frame_number = img_name.split('.')[0]
-            if int(frame_number) % 5 != 0: continue # take just one image per second
+            #if int(frame_number) % 5 != 0: continue # take just one image per second
             
-            annotated_people = groundtruth_dict[frame_number]
-            if not annotated_people: continue
-            
-            img = misc.imread(os.path.join(img_dir_in, img_name))
+            if _LOAD_GT:            
+                annotated_people = groundtruth_dict[frame_number]
+                if not annotated_people: continue
+                
+            img = imread(os.path.join(img_dir_in, img_name))
             
             #for person in annotated_people:
             #    person_id, face_roi = person
@@ -257,34 +264,41 @@ class Pipeline:
             #img = misc.imread('./in/P1E_S1_C1/00001333.jpg')
             #img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # convert color space for proper image display
             
-            src_img = copy.copy(img) # copy orig img for Detector
+           # src_img = copy.copy(img) # copy orig img for Detector
             #src_img = cv2.cvtColor(src_img, cv2.COLOR_RGB2BGR) # convert color space for proper image display
             
-            if _DEBUG:
-                cv2.imshow('Image input', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            #if _DEBUG:
+             #   cv2.imshow('Image input', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
                 #cv2.waitKey(1)
-        
+            
             # TODO: for loop for all images in ./in/ directory OR all frames in provided video
             # detections format - list of tuples: [(x,y,w,h), ...]
-            detections = self.d.detect(src_img,  _debug=_DEBUG)
+            detections = self.d.detect(img,  _debug=_DEBUG)
+            
+            if len(detections) > 0:
+                num_detected_frames = num_detected_frames+1;
             
             #print("Detections length: {}".format(len(detections)))
             for ix, roi in enumerate(detections):
                 x, y, w, h = roi
                 
-                # find most overlapped groundtruth ID (if there are multiple people in sequence)
-                max_ratio = 0
-                selected_person_id = None
-                for person in annotated_people:
-                    person_id, face_roi = person
-                    r = self.overlappingRatio(roi,  face_roi)
-                    if r > max_ratio:
-                        max_ratio = r
-                        selected_person_id = person_id
                 
-                if not selected_person_id:
-                    print("Warning: personID not found for frame {} in detection {}!".format(frame_number, ix))
-                    continue
+                if _LOAD_GT:
+                    # find most overlapped groundtruth ID (if there are multiple people in sequence)
+                    max_ratio = 0
+                    selected_person_id = None
+                    for person in annotated_people:
+                        person_id, face_roi = person
+                        r = self.overlappingRatio(roi,  face_roi)
+                        if r > max_ratio:
+                            max_ratio = r
+                            selected_person_id = person_id
+                    
+                    if not selected_person_id:
+                        print("Warning: personID not found for frame {} in detection {}!".format(frame_number, ix))
+                        continue
+                else:
+                    selected_person_id = 0;
                 #print(x, y, w, h)
                 
                 #sub_img = img[y:y+h, x:x+w, :] # take subarray from source image
@@ -332,18 +346,20 @@ class Pipeline:
                     # resize gen img to match sub_img size
                     
                     #print("GEN IMG shape before: {}".format(gen_img.shape))
-                    gen_img = scipy.misc.imresize(gen_img, (w,  h,  3), interp='bicubic', mode=None)
+                    gen_img = imresize(gen_img, (w,  h,  3), interp='bicubic', mode=None)
                     
                     #print("GEN IMG shape after: {}".format(gen_img.shape))
-                    
-                    
                     
                     # TODO: replace the faces in original image
                     try:
                         alt_img = self.r.replace_v2(img, (x, y, w, h), gen_img, _debug=_DEBUG)
                     except:
+                        alt_img = img;
                         print("SRC ROI: {}".format((x, y, w, h)))
                         print("GENERATED: {}".format(gen_img.shape))
+                        import sys
+                        print("ERROR: Replacer - replace - unexpected error:", sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2])
+            
                 
                     if _GENERATE_DB:
                         #db_img = alt_img[y:y+h, x:x+w, :]
@@ -363,12 +379,16 @@ class Pipeline:
             #cv2.imshow('Sequence window', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         
             #if _GENERATE_DB:
-            #    misc.toimage(alt_img, cmin=0.0, cmax=255.0).save('./out/outfile.png')
+            #misc.toimage(src_img, cmin=0.0, cmax=255.0).save('./out/' + "orig-{}-".format(sequence_name) + img_name)
+            #misc.toimage(img, cmin=0.0, cmax=255.0).save('./out/' + "deid-{}-".format(sequence_name) + img_name)
+            #misc.toimage(alt_img, cmin=0.0, cmax=255.0).save('./out/outfile.png')
             
         #print("De-ID pipeline: DONE.")
         
         if _DEBUG:
             cv2.destroyAllWindows()
+            
+        return num_detected_frames
         
     def generateProtocolTxt(self,  img_dir_out):
         # TODO: generate pairs.txt as in lfw database

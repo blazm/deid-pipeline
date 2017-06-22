@@ -165,7 +165,15 @@ class Generator:
         else:
             raise NotImplementedError
             
-        id_weights = np_utils.to_categorical([id], self.id_len)
+        if type(id) is list:
+            id_weights = np_utils.to_categorical([id[1]], self.id_len)
+            for i in id:
+                id_weights[:, i] = 1.0
+                id_weights = id_weights / (1.0 * len(id));
+            #id_weights = np_utils.to_categorical(id, self.id_len)
+        else:
+            id_weights = np_utils.to_categorical([id], self.id_len)
+            
         #id_weights[:, 10] = 1.0 # testing generation from multiple IDs
             
         input_vec = {
@@ -190,6 +198,28 @@ class Generator:
 
 if __name__ == '__main__':
     gen = Generator('./output/FaceGen.RaFD.model.d6.adam.iter500.h5')
-    for i in range(5):
-        image = gen.generate(i, 'happy')
-        scipy.misc.imsave('../out/gen_out_' + str(i) + '.jpg', image)
+    emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
+    
+    for emotion in emotions:
+    
+        
+        for i in range(0, 3): # 3x k=2
+            # k=2
+            #ids = [i, i+2];
+            ids = [10 + i*10, 11 + i*10];
+            image = gen.generate(ids, emotion)
+            scipy.misc.imsave('../out/gen_out_' + emotion + '_' + '-'.join([str(id) for id in ids]) + '.jpg', image)
+            
+            
+    
+        for i in range(0, 2): # 2x k=3
+            # k=1
+            #image = gen.generate(i, emotion)
+            #scipy.misc.imsave('../out/gen_out_' + emotion + '_' + str(i) + '.jpg', image)
+            
+            # k=4
+            #ids = [i, i+2, i+4, i+6];
+            #ids = [52, 53, 54];
+            ids = [10 + i*10, 11 + i*10, 12 + i*10];
+            image = gen.generate(ids, emotion)
+            scipy.misc.imsave('../out/gen_out_' + emotion + '_' + '-'.join([str(id) for id in ids]) + '.jpg', image)

@@ -28,7 +28,7 @@ class Matcher:
                 return self.matches[selected_person_id]
         
         self.best_match = 0
-        self.best_id = None
+        self.best_id = 0 # TODO: was None, but there is no guarantee that it would be assigned, so 0 is used instead (for now)
         for i in range(self.feat_db.shape[0]): # number of rows
             # This somehow fails on @blaz's side: Intel MKL FATAL ERROR: Cannot load libmkl_avx2.so 
             # or libmkl_def.so. <- CONDA PROBLEM, for now using self.cosine
