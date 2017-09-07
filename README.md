@@ -61,10 +61,10 @@ conda create -n python35 python=3.5 anaconda
 source activate python35
 
 # Install numpy, scipy
-pip3 install numpy, scipy
+pip install numpy, scipy
 
 # Download and install tqdm from https://github.com/noamraph/tqdm
-pip3 install git+https://github.com/noamraph/tqdm.git
+pip install git+https://github.com/noamraph/tqdm.git
 
 # get TensorFlow (GPU or CPU)
 # Ubuntu/Linux 64-bit, GPU enabled, Python 3.5
@@ -76,10 +76,10 @@ export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/gpu/tensorf
 export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.11.0-cp35-cp35m-linux_x86_64.whl
 
 # Install TensorFlow for Python 3
-pip3 install --ignore-installed --upgrade $TF_BINARY_URL
+pip install --ignore-installed --upgrade $TF_BINARY_URL
 
 # Install Keras
-pip3 install keras
+pip install keras h5py
 
 # Enter python to check if all modules successfully imported in python
 python
@@ -102,21 +102,16 @@ To run training or generating, please see the scripts generate.sh, train_once.sh
 ```
 #!bash
 # Install opencv3 to Anaconda
-conda install -c menpo opencv3
+conda install -c menpo opencv3 -n python35
+
+# Install dlib v 18.18 (facial landmarks)
+conda install -c menpo dlib=18.18 -n python35
 ```
 
 ### Matcher dependencies ###
 
-TODO: (only scipy probably, to use cosine metric located in scipy.spatial.distance.cosine(u,v))
+Scipy: (to use cosine metric located in scipy.spatial.distance.cosine(u,v))
 
 ### Replacer dependencies ###
 
-TODO (probably only opencv would be needed)
-
-### Other useful informations ###
-
-My directory relations are currently like this (probably not that important, since we work in local environment with python 3.5):
-
-anaconda2/
-
-de-id/ (this repository)
+OpenCV 3

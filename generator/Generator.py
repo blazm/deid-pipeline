@@ -5,6 +5,7 @@ from keras.utils import np_utils
 from scipy import misc
 from keras.layers import BatchNormalization, Convolution2D, Dense, LeakyReLU, \
     Input, MaxPooling2D, merge, Reshape, UpSampling2D
+from keras.layers.merge import concatenate
 from keras.models import Model
 import tensorflow as tf
 
@@ -97,7 +98,7 @@ def build_model(identity_len=57, orientation_len=2, lighting_len=4,
     fc2 = LeakyReLU()(Dense(512)(lighting_input if use_yale else orientation_input))
     fc3 = LeakyReLU()(Dense(512)(pose_input if use_yale else emotion_input))
 
-    params = merge([fc1, fc2, fc3], mode='concat')
+    params = concatenate([fc1, fc2, fc3]) #merge([fc1, fc2, fc3], mode='concat')
     params = LeakyReLU()(Dense(1024)(params))
 
     # Apply deconvolution layers
@@ -121,23 +122,23 @@ def build_model(identity_len=57, orientation_len=2, lighting_len=4,
         # If we didn't specify the number of kernels to use for this many
         # layers, just repeat the last one in the list.
         idx = i if i < len(num_kernels) else -1
-        x = LeakyReLU()(Convolution2D(num_kernels[idx], 5, 5, border_mode='same')(x))
-        x = LeakyReLU()(Convolution2D(num_kernels[idx], 3, 3, border_mode='same')(x))
+        x = LeakyReLU()(Convolution2D(num_kernels[idx], (5, 5), padding='same')(x))
+        x = LeakyReLU()(Convolution2D(num_kernels[idx], (3, 3), padding='same')(x))
         x = BatchNormalization()(x)
 
     # Last deconvolution layer: Create 3-channel image.
     x = MaxPooling2D((1, 1))(x)
     x = UpSampling2D((2, 2))(x)
-    x = LeakyReLU()(Convolution2D(8, 5, 5, border_mode='same')(x))
-    x = LeakyReLU()(Convolution2D(8, 3, 3, border_mode='same')(x))
-    x = Convolution2D(1 if use_yale else 3, 3, 3, border_mode='same', activation='sigmoid')(x)
+    x = LeakyReLU()(Convolution2D(8, (5, 5), padding='same')(x))
+    x = LeakyReLU()(Convolution2D(8, (3, 3), padding='same')(x))
+    x = Convolution2D(1 if use_yale else 3, (3, 3), padding='same', activation='sigmoid')(x)
 
     # Compile the model
 
     if use_yale:
-        model = Model(input=[identity_input, pose_input, lighting_input], output=x)
+        model = Model(inputs=[identity_input, pose_input, lighting_input], outputs=x)
     else:
-        model = Model(input=[identity_input, orientation_input, emotion_input], output=x)
+        model = Model(inputs=[identity_input, orientation_input, emotion_input], outputs=x)
 
     # TODO: Optimizer options
     model.compile(optimizer=optimizer, loss='msle', metrics=[psnr])
@@ -193,11 +194,15 @@ class Generator:
         return image
 
     def __str__(self):
+        # TODO: print in shape, out shape
         return "{}".format(self.__class__.__name__)
 
 
 if __name__ == '__main__':
-    gen = Generator('./output/FaceGen.RaFD.model.d6.adam.iter500.h5')
+#    gen = Generator('./output/FaceGen.RaFD.model.d6.adam.iter500.h5')
+   # gen = Generator('./output/FaceGen.RaFD.model.d3.adam.h5', deconv_layer=3)
+    gen = Generator('./output/FaceGen.RaFD.model.d2.adam.h5', deconv_layer=2)
+    
     emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
     
     for emotion in emotions:
