@@ -6,10 +6,12 @@ from scipy import misc
 from keras.layers import BatchNormalization, Convolution2D, Conv2D, Dense, LeakyReLU, \
     Input, MaxPooling2D, merge, Reshape, Dropout, Flatten
 from keras.models import Model
+from keras.callbacks import ModelCheckpoint 
+from keras.optimizers import RMSprop
 import tensorflow as tf
 
+import os
 from Generator import Generator, psnr, log10
-
 from faces.instance import YaleInstances, RaFDInstances
 
 def build_model(initial_shape=(5, 4), conv_layers=5, 
@@ -29,7 +31,8 @@ def build_model(initial_shape=(5, 4), conv_layers=5,
     """
 
     if num_kernels is None:
-        num_kernels = [128, 128, 96, 96, 32, 32, 16]
+        #num_kernels = [128, 128, 96, 96, 32, 32, 16]
+        num_kernels = [128*4, 128*4, 96*4, 96*4, 32*4, 32*4, 16*4] # this might be too much for larger dimensions
         num_kernels.reverse()
 
     # generator output - initial * 2 (upsampling by 2) ** (deconv + last layer)    
@@ -45,15 +48,28 @@ def build_model(initial_shape=(5, 4), conv_layers=5,
         idx = i if i < len(num_kernels) else -1
 
         x = Conv2D(num_kernels[idx], 5, strides=2, input_shape=input_shape, \
-            padding='same', activation=LeakyReLU(alpha=0.2), name='conv_'+str(i+1))(x)
+            padding='same', name='conv_'+str(i+1))(x)
+        x = LeakyReLU(alpha=0.2)(x)
         x = Dropout(rate=0.3)(x)
         x = BatchNormalization()(x)
 
     x = Flatten()(x)
     # TODO: include more dense layers
-    x = LeakyReLU()(Dense(512)(x))
-    x = LeakyReLU()(Dense(256)(x))
-    x = LeakyReLU()(Dense(128)(x))
+    x = Dense(512, name='d_1')(x)
+    x = LeakyReLU(alpha=0.2)(x)
+    x = Dropout(rate=0.3)(x)
+    x = BatchNormalization()(x)
+
+    x = Dense(512, name='d_2')(x)
+    x = LeakyReLU(alpha=0.2)(x)
+    x = Dropout(rate=0.3)(x)
+    x = BatchNormalization()(x)
+
+    x = Dense(512, name='d_3')(x)
+    x = LeakyReLU(alpha=0.2)(x)
+    x = Dropout(rate=0.3)(x)
+    x = BatchNormalization()(x)
+
     # if needed multiple outputs (also guessing identity)
     #out_id = Dense(57, activation='softmax', name='auxiliary')(x) 
     x = Dense(1, activation='sigmoid', name='guess')(x)
@@ -62,8 +78,10 @@ def build_model(initial_shape=(5, 4), conv_layers=5,
     model = Model(input=image_input, output=x)
 
     # TODO: Optimizer options
-    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=[psnr, 'accuracy']) # TODO: will this affect adversarial model compiling?
-
+    #optimizer = RMSprop(lr=0.0008, clipvalue=1.0, decay=6e-8)
+    optimizer = RMSprop(lr=0.075, clipvalue=1.0, decay=6e-8)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy']) # TODO: will this affect adversarial model compiling?
+    
     model.summary()
 
     return model
@@ -122,21 +140,30 @@ class Discriminator:
 
 
 if __name__ == '__main__':
+
+    import os
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
+    os.environ["CUDA_VISIBLE_DEVICES"]="1" # in the external slot
+    #os.environ["CUDA_VISIBLE_DEVICES"]="0" # on the mobo
+
+
+
     #gen = Generator('./output/FaceGen.RaFD.model.d6.adam.iter500.h5')
     #gen = Generator('./output/FaceGen.RaFD.model.d6.adam.h5')
     #emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
     
     #id_len = 57
-    #deconv_layer = 2
-
+    conv_layers = 3
+    optimizer = 'adam'
     #gen_model = build_generator(identity_len=id_len, deconv_layers=deconv_layer, optimizer='adam', initial_shape=(5, 4))
     #gen_model.load_weights(gen_path)
     #gen_model.summary()
 
 
     dis_model = build_model(
-        optimizer='adam',
-        initial_shape=(5, 4)
+        optimizer=optimizer,
+        initial_shape=(5, 4),
+        conv_layers=conv_layers
     )
     #model.load_weights(model_path)
 
@@ -159,31 +186,46 @@ if __name__ == '__main__':
 
 
     # fake images
-    gen = Generator('./output/FaceGen.RaFD.model.d5.adam.h5', deconv_layer=5)
-    emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
+    # TODO: generate from random picked IDs (similar to random uniform picking from latent space)
+    gen = Generator('./output/FaceGen.RaFD.model.d3.adam.h5', deconv_layer=conv_layers)
     
-    gen_imgs = []
-    for emotion in emotions:    
-        for i in range(1, 57): # 3x k=2
-            # k=2
-            ids = [i, i-1]; # , i-1
-            image = gen.generate(i, emotion)
-            gen_imgs.append(image)
+    #gen_imgs = gen.generate_actual()
+    # gen_imgs = []
+    # for emotion in emotions:    
+    #     for i in range(1, 57): # 3x k=2
+    #         # k=2
+    #         ids = [i, i-1]; # , i-1
+    #         image = gen.generate(i, emotion)
+    #         gen_imgs.append(image)
 
-    gen_imgs = np.array(gen_imgs)
-    print("FAKE INPUTS: ", gen_imgs.shape)
-
+    # gen_imgs = np.array(gen_imgs)
+    # print("FAKE INPUTS: ", gen_imgs.shape)
 
     # real images
     input_params, real_imgs = instances.load_data(image_size, verbose=verbose)
-
     #print(inputs.keys()) # identities
     #print(outputs.shape) # images
-
+  
+    # balance number of generated images with number of real images
+    # generating 1k results in non-zero predictions (nonbalanced dataset?)
+    gen_imgs = gen.generate_random(real_imgs.shape[0]) 
+    #gen_imgs = gen.generate_actual() 
+    from scipy.misc import toimage
+    toimage(gen_imgs[1]).show(title='generated')
+    from scipy.misc import toimage
+    toimage(real_imgs[1]).show(title='real')
+      
   
     # TODO: merge inputs and fake inputs before training 
-    inputs = np.concatenate((gen_imgs, real_imgs), axis=0) # [iimgs]
+    inputs = np.concatenate((gen_imgs, real_imgs)) # [iimgs]
     outputs = np.concatenate((np.zeros((gen_imgs.shape[0], 1)), np.ones((real_imgs.shape[0], 1))), axis=0) # [1, 0]
+
+    def unison_shuffled_copies(a, b):
+        assert len(a) == len(b)
+        p = np.random.permutation(len(a))
+        return a[p], b[p]
+
+    inputs, outputs = unison_shuffled_copies(inputs, outputs)
 
     print(inputs.shape)
     print(outputs.shape)
@@ -195,29 +237,44 @@ if __name__ == '__main__':
     #while num_epochs > 0:
     # loop one by one?
 
-    batch_size = 16
+    batch_size = 64
     num_epochs = 10
     callbacks = list() # TODO: generate immediate predictions after each epoch*
+    output_dir = 'output/'
 
-    historyObj = dis_model.fit(inputs, outputs, batch_size=batch_size, nb_epoch=num_epochs,
+    model_path = os.path.join(output_dir, 'FaceDisc.{}.model.c{}.{}.h5'
+            .format('YaleFaces' if use_yale else 'RaFD', conv_layers, optimizer))
+
+    callbacks.append(
+        ModelCheckpoint(
+            model_path,
+            monitor='loss', verbose=0, save_best_only=True,
+        )
+    )
+
+    historyObj = dis_model.fit(inputs, outputs, batch_size=batch_size, epochs=num_epochs,
             callbacks=callbacks, shuffle=True, verbose=1)
     print("History: \n")
     print(historyObj.history)
 
 
-    gen_imgs = []
-    for emotion in emotions:    
-        for i in range(1, 57): # 3x k=2
-            # k=2
-            ids = [i, i-1]; # , i-1
-            image = gen.generate(ids, emotion)
-            gen_imgs.append(image)
+    gen_imgs = gen.generate_random(10)
 
-    gen_imgs = np.array(gen_imgs)
 
     results = dis_model.predict_on_batch(gen_imgs)
     print(results)
 
+    results = dis_model.predict_on_batch(gen.generate_actual()[1:10])
+    print(results)
+
+    #from scipy.misc import imshow
+    #imshow(gen_imgs[1])
+    #from scipy.misc import toimage
+    #toimage(gen_imgs[1]).show()
+    #import matplotlib.pyplot as plt
+    #plt.gray()
+    #plt.imshow(gen_imgs[1])
+    #plt.show()
 
     if verbose:
         print("Done!")
