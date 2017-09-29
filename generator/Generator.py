@@ -101,7 +101,9 @@ def build_model(identity_len=57, orientation_len=2, lighting_len=4,
     params = concatenate([fc1, fc2, fc3]) #merge([fc1, fc2, fc3], mode='concat')
     #params = Dropout(rate=0.3)(params)
     
-    params = LeakyReLU()(Dense(1024)(params))
+
+
+    params = LeakyReLU()(Dense(1024, kernel_initializer='random_normal', bias_initializer='random_normal')(params))
     #params = Dropout(rate=0.3)(params)
         
     # Apply deconvolution layers
@@ -110,7 +112,7 @@ def build_model(identity_len=57, orientation_len=2, lighting_len=4,
 
     print('height:', height, 'width:', width)
 
-    x = LeakyReLU()(Dense(height * width * num_kernels[0])(params))
+    x = LeakyReLU()(Dense(height * width * num_kernels[0], kernel_initializer='random_normal', bias_initializer='random_normal')(params))
     if K.image_dim_ordering() == 'th':
         x = Reshape((num_kernels[0], height, width))(x)
     else:
@@ -126,11 +128,13 @@ def build_model(identity_len=57, orientation_len=2, lighting_len=4,
         # If we didn't specify the number of kernels to use for this many
         # layers, just repeat the last one in the list.
         idx = i if i < len(num_kernels) else -1
-        x = LeakyReLU()(Convolution2D(num_kernels[idx], (5, 5), padding='same')(x))
+        x = LeakyReLU()(Convolution2D(num_kernels[idx], (5, 5), padding='same', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x))
         x = Dropout(rate=0.3)(x)
         #x = BatchNormalization()(x)
         
-        x = LeakyReLU()(Convolution2D(num_kernels[idx], (3, 3), padding='same')(x))
+        x = LeakyReLU()(Convolution2D(num_kernels[idx], (3, 3), padding='same', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x))
         x = Dropout(rate=0.3)(x)
         
         x = BatchNormalization()(x)
@@ -138,9 +142,12 @@ def build_model(identity_len=57, orientation_len=2, lighting_len=4,
     # Last deconvolution layer: Create 3-channel image.
     x = MaxPooling2D((1, 1))(x)
     x = UpSampling2D((2, 2))(x)
-    x = LeakyReLU()(Convolution2D(8, (5, 5), padding='same')(x))
-    x = LeakyReLU()(Convolution2D(8, (3, 3), padding='same')(x))
-    x = Convolution2D(1 if use_yale else 3, (3, 3), padding='same', activation='sigmoid')(x)
+    x = LeakyReLU()(Convolution2D(8, (5, 5), padding='same', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x))
+    x = LeakyReLU()(Convolution2D(8, (3, 3), padding='same', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x))
+    x = Convolution2D(1 if use_yale else 3, (3, 3), padding='same', activation='sigmoid', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x)
 
     # Compile the model
 

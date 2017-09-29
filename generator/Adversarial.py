@@ -1,7 +1,7 @@
 
 from keras.models import Model, Sequential
 from keras.optimizers import RMSprop, Adam
-from keras.callbacks import ModelCheckpoint 
+from keras.callbacks import ModelCheckpoint, TensorBoard
 from keras import backend as K
 
 from Generator import Generator, build_model as build_generator, psnr, log10
@@ -9,6 +9,38 @@ from Discriminator import build_model as build_discriminator
 from faces.instance import YaleInstances, RaFDInstances
 
 import numpy as np
+from time import time, strftime
+
+import tensorflow as tf 
+
+#
+#writer.add_run_metadata(tf.RunMetadata(), "demo_run", global_step=None)
+
+# exec tensorboard via python: python -m tensorflow.tensorboard --logdir=
+
+def log(tag, value):
+    writer = tf.summary.FileWriter("./board")
+    summary = tf.Summary(value=[tf.Summary.Value(tag=tag, 
+                                     simple_value=value), ])
+    writer.add_summary(summary)
+
+
+def print_weights(model):
+
+
+
+    weights = model.trainable_weights # weight tensors
+    weights = [weight for weight in weights if model.get_layer(weight.name[:-2]).trainable] # filter down weights tensors to only ones which are trainable
+    gradients = model.optimizer.get_gradients(model.total_loss, weights) # gradient tensors
+
+
+    for grad in gradients:
+        g = tf.Variable(tf.truncated_normal(g))
+        g_summary = tf.image_summary(g)
+
+
+    #print(weights)
+    # ==> [dense_1_W, dense_1_b]
 
 #def build_model(id_len=57, deconv_layer=6, initial_shape=(5, 4)):
 #    pass
@@ -29,6 +61,9 @@ def train():
     noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
     a_loss = self.adversarial.train_on_batch(noise, y)
 
+def max_log_loss(y_true, y_pred):
+    return K.sum(K.maximum(K.log(y_pred)))
+
 
 if __name__ == '__main__':
 
@@ -37,13 +72,15 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"]="1" # in the external slot
     #os.environ["CUDA_VISIBLE_DEVICES"]="0" # on the mobo
 
+    experiment_label = "lr=0.001"
+
     #gen = Generator('./output/FaceGen.RaFD.model.d6.adam.iter500.h5')
     #gen = Generator('./output/FaceGen.RaFD.model.d6.adam.h5')
     #emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
     id_len = 57
-    deconv_layer = 4
-    num_epochs = 100
-    batch_size = 16
+    deconv_layer = 2
+    num_epochs = 50
+    batch_size = 64
     #gen_path = './output/FaceGen.RaFD.model.d2.adam.h5'
     #gen_model = build_generator(identity_len=id_len, deconv_layers=deconv_layer, optimizer='adam', initial_shape=(5, 4))
     #gen_model.load_weights(gen_path)
@@ -70,9 +107,9 @@ if __name__ == '__main__':
 
     adv_model.summary()
 
-    optimizer = RMSprop(lr=0.00005, clipvalue=1.0, decay=3e-8)
+    #optimizer = RMSprop(lr=0.00005, clipvalue=1.0, decay=3e-8)
     #optimizer = RMSprop(lr=0.01, clipvalue=1.0, decay=3e-8)
-    #optimizer = Adam(lr=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+    optimizer = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
     adv_model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy']) # , psnr
 
     #return adv_model
@@ -161,6 +198,9 @@ if __name__ == '__main__':
         print("Training...")
 
 
+    #board = TensorBoard(log_dir='./board/{}'.format(time()), histogram_freq=0,  
+    #      write_graph=True, write_images=True)
+
     callbacks_d = list() # TODO: generate immediate predictions after each epoch*
     callbacks_a = list() # TODO: generate immediate predictions after each epoch*
     callbacks_g = list() # TODO: generate immediate predictions after each epoch*
@@ -200,14 +240,40 @@ if __name__ == '__main__':
 
     data_flow = train_gen()
 
+    tensorboard = TensorBoard(log_dir='./board/{}_{}'.format(strftime("%Y-%m-%d_%H.%M"), experiment_label), histogram_freq=0,
+                          write_graph=True, write_images=True, write_grads=True, 
+                          batch_size=batch_size)
+    #tensorboard.set_params(adv_model.get_config())
+    tensorboard.set_model(adv_model)
+    #print(input_params)
+    #print(outputs)
+
+    tensors = (adv_model.inputs +
+                           adv_model.targets +
+                           adv_model.sample_weights)
+    print(len(tensors))
+    print(len((input_params, outputs)))
+
+    print(len(input_params))
+
+    a, b, c = input_params
+
+    tensorboard.validation_data = (a, b, c, outputs, None)
+
+ #   print(adv_model.get_config())
+
     for e in range(num_epochs):
         print("EPOCHS: ", e, "/", num_epochs)
+
+       # tensorboard.on_epoch_begin(e)
+
         for i in range(0, num_seq // batch_size):
             #images_train = self.x_train[np.random.randint(0,
             #    self.x_train.shape[0], size=batch_size), :, :, :]
 
-            images_train, labels_real = next(data_flow)
+          #  tensorboard.on_batch_begin(i)
 
+            images_train, labels_real = next(data_flow)
 
             #noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
             #noise = gen.generate_random_inputs(batch_size)
@@ -221,17 +287,40 @@ if __name__ == '__main__':
             #y = np.ones([2*batch_size, 1])
             #y[batch_size:, :] = 0
 
-            x = np.concatenate((images_fake, images_train)) # [iimgs]
-            y = np.concatenate((np.zeros((images_fake.shape[0], 1)), 
-                                np.ones((images_train.shape[0], 1))), axis=0) # [1, 0]
 
-            x, y = unison_shuffled_copies(x, y)
+            #x = np.concatenate((images_fake, images_train)) # [iimgs]
+            #y = np.concatenate((np.zeros((images_fake.shape[0], 1)), 
+            #                    np.ones((images_train.shape[0], 1))), axis=0) # [1, 0]
+
+           # x, y = unison_shuffled_copies(x, y) # should not shuffle batches
             #print(x.shape)
             #print(y.shape)
 
+            #train separately
+            x = images_fake
+#            y = np.zeros([images_fake.shape[0], 1])
+            y = np.zeros([images_fake.shape[0], 1]) \
+            #    + np.random.normal(loc=0.0, scale=0.03, size=[images_fake.shape[0], 1])
+            #print("MAX MIN dfY: ", np.max(y), np.min(y))
+    
             d_loss = dis_model.train_on_batch(x, y) # discriminator train
 
-            y = np.ones([batch_size, 1])
+           # log("d_loss_fake", d_loss[0])
+           # log("d_acc_fake", d_loss[1])
+
+            x = images_train
+ #           y = np.ones([images_train.shape[0], 1])
+            y = np.ones([images_train.shape[0], 1]) \
+            #    + np.random.normal(loc=0.0, scale=0.03, size=[images_train.shape[0], 1])
+            #print("MAX MIN drY: ", np.max(y), np.min(y))
+    
+            d_loss = dis_model.train_on_batch(x, y) # discriminator train
+
+           # log("d_loss_real", d_loss[0])
+           # log("d_acc_real", d_loss[1])
+
+            y = np.ones([batch_size, 1]) \
+            #    + np.random.normal(loc=0.0, scale=0.03, size=[batch_size, 1])
 
             #noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
             input_vec = gen.generate_random_inputs(batch_size)
@@ -253,10 +342,28 @@ if __name__ == '__main__':
             log_mesg = "%s  [A loss: %f, acc: %f]" % (log_mesg, a_loss[0], a_loss[1])
             print(log_mesg)
 
+            logs = {}
+            logs["a_loss"] = np.float32(a_loss[0])
+            logs["d_loss"] = np.float32(d_loss[0])
+
+            logs["a_acc"] = np.float32(a_loss[1])
+            logs["d_acc"] = np.float32(d_loss[1])
+         #   tensorboard.on_batch_end(i, logs=logs)
+
+#            print_weights(gen_model)
+
+           # log("a_loss", a_loss[0])
+           # log("a_acc", a_loss[1])
+
+
+            tensorboard.on_epoch_end(e * num_seq // batch_size + i, logs=logs)
+
 
         gen_model.save(model_path_g)
         #gen.generate_random(10, None,'../out/adversarial/')
         gen.generate_actual('../out/adversarial/')
+
+    tensorboard.on_train_end(None)
     #curr_loss 
     #while num_epochs > 0:
     # custom training using generator

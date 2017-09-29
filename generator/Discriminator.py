@@ -7,7 +7,7 @@ from keras.layers import BatchNormalization, Convolution2D, Conv2D, Dense, Leaky
     Input, MaxPooling2D, merge, Reshape, Dropout, Flatten
 from keras.models import Model
 from keras.callbacks import ModelCheckpoint 
-from keras.optimizers import RMSprop
+from keras.optimizers import RMSprop, SGD
 import tensorflow as tf
 
 import os
@@ -55,12 +55,12 @@ def build_model(initial_shape=(5, 4), conv_layers=5,
 
     x = Flatten()(x)
     # TODO: include more dense layers
-    x = Dense(512, name='d_1')(x)
+    x = Dense(1024, name='d_1')(x)
     x = LeakyReLU(alpha=0.2)(x)
     x = Dropout(rate=0.3)(x)
     x = BatchNormalization()(x)
 
-    x = Dense(512, name='d_2')(x)
+    x = Dense(1024, name='d_2')(x)
     x = LeakyReLU(alpha=0.2)(x)
     x = Dropout(rate=0.3)(x)
     x = BatchNormalization()(x)
@@ -79,7 +79,8 @@ def build_model(initial_shape=(5, 4), conv_layers=5,
 
     # TODO: Optimizer options
     #optimizer = RMSprop(lr=0.0008, clipvalue=1.0, decay=6e-8)
-    optimizer = RMSprop(lr=0.075, clipvalue=1.0, decay=6e-8)
+    #optimizer = RMSprop(lr=0.001, clipvalue=1.0, decay=6e-8)
+    optimizer = SGD(lr=0.01, momentum=0.0, decay=0.0, nesterov=False)
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy']) # TODO: will this affect adversarial model compiling?
     
     model.summary()
