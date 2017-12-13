@@ -117,8 +117,5 @@ TODO (probably only opencv would be needed)
 
 ### Other useful informations ###
 
-My directory relations are currently like this (probably not that important, since we work in local environment with python 3.5):
-
-anaconda2/
-
-de-id/ (this repository)
+Setting up Tensorflow and Keras on Windows 10: https://github.com/antoniosehk/keras-tensorflow-windows-installation
+Setting up Tensorflow and Keras on Linux: https://github.com/ignaciorlando/skinner/wiki/Keras-and-TensorFlow-installation
