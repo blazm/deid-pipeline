@@ -10,6 +10,9 @@ class Replacer:
     
     def __init__(self):
         self.mask = None
+        predictor_path = "./replacer/shape_predictor_68_face_landmarks.dat"
+        #detector = dlib.get_frontal_face_detector()
+        self.predictor = dlib.shape_predictor(predictor_path)
         
     def shape_to_nparray(self, shape,  displacement=(0, 0)):
         """
@@ -28,10 +31,7 @@ class Replacer:
         
         
     def replace_v2(self,  src_img,  src_roi,  gen_img,  _debug=False):
-        
-        predictor_path = "./replacer/shape_predictor_68_face_landmarks.dat"
-        #detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor(predictor_path)
+
         
         x, y, w, h = src_roi
         size = (w, h)
@@ -46,8 +46,8 @@ class Replacer:
         src_detection = dlib.rectangle(ix, iy, ix+iw, iy+ih)
         gen_detection = dlib.rectangle(0, 0, iw, ih)
         
-        src_shape = predictor(src_img, src_detection)
-        gen_shape = predictor(gen_img, gen_detection)
+        src_shape = self.predictor(src_img, src_detection)
+        gen_shape = self.predictor(gen_img, gen_detection)
         
         displacement = (x, y)
         src_pts = self.shape_to_nparray(src_shape,  displacement)
