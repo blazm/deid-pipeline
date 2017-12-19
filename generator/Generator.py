@@ -4,13 +4,14 @@ import numpy as np
 from keras.utils import np_utils
 from scipy import misc
 from keras.layers import BatchNormalization, Convolution2D, Dense, LeakyReLU, \
-    Input, MaxPooling2D, merge, Reshape, UpSampling2D
+    Input, MaxPooling2D, merge, Reshape, UpSampling2D, Dropout
+from keras.layers.merge import concatenate
 from keras.models import Model
 import tensorflow as tf
 
 NUM_YALE_POSES = 10
 
-
+import random
 # ---- Enum classes for vector descriptions
 
 class Emotion:
@@ -97,16 +98,21 @@ def build_model(identity_len=57, orientation_len=2, lighting_len=4,
     fc2 = LeakyReLU()(Dense(512)(lighting_input if use_yale else orientation_input))
     fc3 = LeakyReLU()(Dense(512)(pose_input if use_yale else emotion_input))
 
-    params = merge([fc1, fc2, fc3], mode='concat')
-    params = LeakyReLU()(Dense(1024)(params))
+    params = concatenate([fc1, fc2, fc3]) #merge([fc1, fc2, fc3], mode='concat')
+    #params = Dropout(rate=0.3)(params)
+    
 
+
+    params = LeakyReLU()(Dense(1024, kernel_initializer='random_normal', bias_initializer='random_normal')(params))
+    #params = Dropout(rate=0.3)(params)
+        
     # Apply deconvolution layers
 
     height, width = initial_shape
 
     print('height:', height, 'width:', width)
 
-    x = LeakyReLU()(Dense(height * width * num_kernels[0])(params))
+    x = LeakyReLU()(Dense(height * width * num_kernels[0], kernel_initializer='random_normal', bias_initializer='random_normal')(params))
     if K.image_dim_ordering() == 'th':
         x = Reshape((num_kernels[0], height, width))(x)
     else:
@@ -115,29 +121,40 @@ def build_model(identity_len=57, orientation_len=2, lighting_len=4,
     for i in range(0, deconv_layers):
         # Upsample input
         x = UpSampling2D((2, 2))(x)
-
+        #x = Dropout(rate=0.3)(x)
+        #x = BatchNormalization()(x)
         # Apply 5x5 and 3x3 convolutions
 
         # If we didn't specify the number of kernels to use for this many
         # layers, just repeat the last one in the list.
         idx = i if i < len(num_kernels) else -1
-        x = LeakyReLU()(Convolution2D(num_kernels[idx], 5, 5, border_mode='same')(x))
-        x = LeakyReLU()(Convolution2D(num_kernels[idx], 3, 3, border_mode='same')(x))
+        x = LeakyReLU()(Convolution2D(num_kernels[idx], (5, 5), padding='same', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x))
+        x = Dropout(rate=0.3)(x)
+        #x = BatchNormalization()(x)
+        
+        x = LeakyReLU()(Convolution2D(num_kernels[idx], (3, 3), padding='same', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x))
+        x = Dropout(rate=0.3)(x)
+        
         x = BatchNormalization()(x)
 
     # Last deconvolution layer: Create 3-channel image.
     x = MaxPooling2D((1, 1))(x)
     x = UpSampling2D((2, 2))(x)
-    x = LeakyReLU()(Convolution2D(8, 5, 5, border_mode='same')(x))
-    x = LeakyReLU()(Convolution2D(8, 3, 3, border_mode='same')(x))
-    x = Convolution2D(1 if use_yale else 3, 3, 3, border_mode='same', activation='sigmoid')(x)
+    x = LeakyReLU()(Convolution2D(8, (5, 5), padding='same', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x))
+    x = LeakyReLU()(Convolution2D(8, (3, 3), padding='same', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x))
+    x = Convolution2D(1 if use_yale else 3, (3, 3), padding='same', activation='sigmoid', kernel_initializer='random_normal',
+                bias_initializer='random_normal')(x)
 
     # Compile the model
 
     if use_yale:
-        model = Model(input=[identity_input, pose_input, lighting_input], output=x)
+        model = Model(inputs=[identity_input, pose_input, lighting_input], outputs=x)
     else:
-        model = Model(input=[identity_input, orientation_input, emotion_input], output=x)
+        model = Model(inputs=[identity_input, orientation_input, emotion_input], outputs=x)
 
     # TODO: Optimizer options
     model.compile(optimizer=optimizer, loss='msle', metrics=[psnr])
@@ -154,19 +171,31 @@ class Generator:
             optimizer='adam',
             initial_shape=(5, 4),
         )
-        model.load_weights(model_path)
+        if model_path:
+            model.load_weights(model_path)
         self.id_len = id_len
         self.model = model
 
-    def generate(self, id, emo='angry', orient='front', _debug=False):
+    def getKerasModel(self):
+        return self.model
+
+    def generate(self, id, emo='neutral', orient='front', _debug=False):
 
         if orient == 'front':
             orientation = np.zeros((1, 2))
         else:
             raise NotImplementedError
             
-        id_weights = np_utils.to_categorical([id], self.id_len)
-        #id_weights[:, 11:21] = 0.2 # testing generation from multiple IDs
+        if type(id) is list:
+            id_weights = np_utils.to_categorical([id[1]], self.id_len)
+            for i in id:
+                id_weights[:, i] = 1.0
+                id_weights = id_weights / (1.0 * len(id));
+            #id_weights = np_utils.to_categorical(id, self.id_len)
+        else:
+            id_weights = np_utils.to_categorical([id], self.id_len)
+            
+        #id_weights[:, 10] = 1.0 # testing generation from multiple IDs
             
         input_vec = {
             'identity': id_weights,  # np_utils.to_categorical([id], self.id_len),
@@ -184,12 +213,131 @@ class Generator:
         image = np.array(255 * np.clip(image, 0, 1), dtype=np.uint8)
         return image
 
+    def generate_random(self, n, multi_id=None, save_to=None):
+        
+        emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
+    
+        samples = []
+        for i in range(0, n):
+            emo = random.choice(emotions)
+            ide = random.randint(0, 56)
+            if multi_id is not None:
+                ide = [random.randint(0,56) for j in range(1, multi_id)]
+
+            image = self.generate(ide, emo)
+            if save_to:
+                scipy.misc.imsave(save_to + 'gen_out_' + emo + '_' + str(ide) + '.jpg', image)
+
+            samples.append(image)
+
+        samples = np.array(samples)
+        return samples
+
+    def generate_random_inputs(self, n, orient='front'):
+        emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
+    
+        ids = np.empty(shape=[n, 57])
+        emos = np.empty(shape=[n, 8])
+        orients = np.empty(shape=[n, 2])
+
+        inputs = []
+
+        #print(ids.shape)
+
+        for i in range(0, n):
+            if orient == 'front':
+                orientation = np.zeros((1, 2))
+            else:
+                raise NotImplementedError
+            
+            id = random.randint(0, 56)
+            emo = random.choice(emotions)
+            # TODO: can be multiple ids?
+
+            if type(id) is list:
+                id_weights = np_utils.to_categorical([id[1]], self.id_len)
+                for i in id:
+                    id_weights[:, i] = 1.0
+                    id_weights = id_weights / (1.0 * len(id));
+                #id_weights = np_utils.to_categorical(id, self.id_len)
+            else:
+                id_weights = np_utils.to_categorical([id], self.id_len)
+                
+            #id_weights[:, 10] = 1.0 # testing generation from multiple IDs
+                
+            input_vec = {
+                'identity': id_weights,  # np_utils.to_categorical([id], self.id_len),
+                'emotion': np.array(getattr(Emotion, emo)).reshape((1, Emotion.length())),
+                'orientation': np.array(orientation),
+            }
+
+            #print(input_vec['identity'][:].shape)
+
+            ids[i, :] = input_vec['identity']
+            emos[i, :] = input_vec['emotion']
+            orients[i, :] = input_vec['orientation']
+
+            #inputs.append(np.array(id_weights, np.array(getattr(Emotion, emo)).reshape((1, Emotion.length()), np.array(orientation)))
+            inputs.append([input_vec['identity'], input_vec['emotion'], input_vec['orientation']])
+
+        #input_vec = [ids, emos, orients]
+        input_vec = { #[np.array(ids), np.array(emos), np.array(orients)]
+            'identity': ids,  # np_utils.to_categorical([id], self.id_len),
+            'emotion': emos, #np.array(getattr(Emotion, emo)).reshape((1, Emotion.length())),
+            'orientation': orients,
+        }
+        return input_vec
+        #return inputs
+
+    def generate_actual(self, save_to=None): # TODO: generalize for each k?
+        emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
+    
+        samples = []
+        for emo in emotions:    
+            for i in range(0, 57): # 3x k=2
+                # k=2
+                #ids = [i, i-1]; # , i-1
+                image = self.generate(i, emo)
+                if save_to:
+                    scipy.misc.imsave(save_to + 'gen_out_' + emo + '_' + str(i) + '.jpg', image)
+
+                samples.append(image)
+
+        samples = np.array(samples)
+        return samples
+
     def __str__(self):
+        # TODO: print in shape, out shape
         return "{}".format(self.__class__.__name__)
 
 
 if __name__ == '__main__':
-    gen = Generator('./output/FaceGen.RaFD.model.d6.adam.iter500.h5')
-    for i in range(5):
-        image = gen.generate(i, 'happy')
-        scipy.misc.imsave('../out/gen_out_' + str(i) + '.jpg', image)
+#    gen = Generator('./output/FaceGen.RaFD.model.d6.adam.iter500.h5')
+   # gen = Generator('./output/FaceGen.RaFD.model.d3.adam.h5', deconv_layer=3)
+    gen = Generator('./output/FaceGen.RaFD.model.d2.adam.h5', deconv_layer=2)
+    
+    emotions = ['happy','angry', 'contemptuous', 'disgusted', 'fearful', 'neutral', 'sad', 'surprised']
+    
+    for emotion in emotions:
+    
+        
+        for i in range(0, 3): # 3x k=2
+            # k=2
+            #ids = [i, i+2];
+            ids = [10 + i*10, 11 + i*10];
+            image = gen.generate(ids, emotion)
+            scipy.misc.imsave('../out/gen_out_' + emotion + '_' + '-'.join([str(id) for id in ids]) + '.jpg', image)
+            
+            
+    
+        for i in range(0, 2): # 2x k=3
+            # k=1
+            #image = gen.generate(i, emotion)
+            #scipy.misc.imsave('../out/gen_out_' + emotion + '_' + str(i) + '.jpg', image)
+            
+            # k=4
+            #ids = [i, i+2, i+4, i+6];
+            #ids = [52, 53, 54];
+            ids = [10 + i*10, 11 + i*10, 12 + i*10];
+            image = gen.generate(ids, emotion)
+            scipy.misc.imsave('../out/gen_out_' + emotion + '_' + '-'.join([str(id) for id in ids]) + '.jpg', image)

@@ -90,6 +90,8 @@ ENV/
 .ropeproject
 
 # De-ID project specific directories
-./DB
-./generator/output
-./replacer/shape_predictor_68_face_landmarks.dat
+**/DB
+**/generator/output
+**/replacer/shape_predictor_68_face_landmarks.dat
+**/in
+**/out

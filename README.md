@@ -79,7 +79,7 @@ export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorf
 pip install --ignore-installed --upgrade $TF_BINARY_URL
 
 # Install Keras
-pip install keras
+pip install keras h5py
 
 # Enter python to check if all modules successfully imported in python
 python
@@ -102,20 +102,16 @@ To run training or generating, please see the scripts generate.sh, train_once.sh
 ```
 #!bash
 # Install opencv3 to Anaconda
-conda install -n python35 -c menpo opencv3
-# Install dlib
-conda install -n python35 -c menpo dlib=18.18
+conda install -c menpo opencv3 -n python35
+
+# Install dlib v 18.18 (facial landmarks)
+conda install -c menpo dlib=18.18 -n python35
 ```
 
 ### Matcher dependencies ###
 
-TODO: (only scipy probably, to use cosine metric located in scipy.spatial.distance.cosine(u,v))
+Scipy: (to use cosine metric located in scipy.spatial.distance.cosine(u,v))
 
 ### Replacer dependencies ###
 
-TODO (probably only opencv would be needed)
-
-### Other useful informations ###
-
-Setting up Tensorflow and Keras on Windows 10: https://github.com/antoniosehk/keras-tensorflow-windows-installation
-Setting up Tensorflow and Keras on Linux: https://github.com/ignaciorlando/skinner/wiki/Keras-and-TensorFlow-installation
+OpenCV 3
