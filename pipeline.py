@@ -121,16 +121,16 @@ def main():
     g = Generator(model_path='./generator/output/FaceGen.RaFD.model.d6.adam.iter500.h5')
     r = Replacer()
     
-    frontal_sequences = ['P1E_S1_C1',  'P1E_S2_C2',  'P1E_S3_C3',  'P1E_S4_C1', 'P1L_S1_C1', 'P1L_S2_C2', 'P1L_S3_C3',
-                        'P1L_S4_C1', 'P2E_S1_C3', 'P2E_S2_C2', 'P2E_S3_C1', 'P2E_S4_C2',  'P2L_S1_C1', 'P2L_S2_C2', 'P2L_S3_C3', 'P2L_S4_C2']
-
+    # frontal_sequences = ['P1E_S1_C1',  'P1E_S2_C2',  'P1E_S3_C3',  'P1E_S4_C1', 'P1L_S1_C1', 'P1L_S2_C2', 'P1L_S3_C3',
+    #                     'P1L_S4_C1', 'P2E_S1_C3', 'P2E_S2_C2', 'P2E_S3_C1', 'P2E_S4_C2',  'P2L_S1_C1', 'P2L_S2_C2', 'P2L_S3_C3', 'P2L_S4_C2']
+    frontal_sequences = ['P1E_S1_C1']
     chokepoint_dir = "./in/" #chokepoint/
     all_sequences =  [dir for dir in os.listdir(chokepoint_dir) if os.path.isdir(os.path.join(chokepoint_dir, dir)) and dir.startswith('P')]
    # print("All dirs: {} ".format(all_sequences))
 
     # TODO: process whole DB
-    img_dir_in = "./in/P1E_S1_C1/"
-    img_dir_out = "./out/P1E_S1_C1/"
+    img_dir_in = "./in/P1E_S1/"
+    img_dir_out = "./out/P1E_S1/"
     if not os.path.exists(img_dir_out):
         os.makedirs(img_dir_out)
     if not os.path.exists(os.path.join(img_dir_out,  'raw_detection')):
