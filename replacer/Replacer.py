@@ -69,12 +69,8 @@ class Replacer:
 
         if _debug:
             cv2.imshow('Generated before warp',  cv2.cvtColor(gen_img, cv2.COLOR_RGB2BGR))
-        
         x, y, w, h = src_roi
         m = min(w, h)
-
-        if _debug:
-            cv2.imshow('Mask before warp',  mask)
 
         size = (w, h)
         # convert to use dimensions in dlib.rectangle
@@ -110,7 +106,6 @@ class Replacer:
         if _debug:
             cv2.imshow('face', src_face)
             cv2.imshow('mask', mask*255)
-            cv2.waitKey(0)
 
        # print("SRC: {}".format(src_pts))
        # print("GEN: {}".format(gen_pts)) 
@@ -120,7 +115,7 @@ class Replacer:
        # print("S: {}".format(status)) # homography matrix        
        # print("H: {}".format(h)) # homography matrix
         
-        gen_img_warp = cv2.warpPerspective(gen_img, h, size, borderMode=cv2.BORDER_REPLICATE)
+        gen_img_warp = cv2.warpPerspective(gen_img, self.homography, size, borderMode=cv2.BORDER_REPLICATE)
 
         gen_img_warp = self.equalize_colors(src_face, gen_img_warp,mask)
         
