@@ -14,7 +14,8 @@ import cv2
 
 #--------- pipeline imports --------------
 # from folder.file import class
-from detector.Detector import Detector
+from detector2.Detector import Detector
+#from detector.Detector import Detector
 from extractor.Extractor import Extractor
 from generator.Generator import Generator
 from matcher.Matcher import Matcher

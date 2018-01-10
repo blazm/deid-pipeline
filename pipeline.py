@@ -13,7 +13,7 @@ import cv2
 
 #--------- pipeline imports --------------
 # from folder.file import class
-from detector.Detector import Detector
+from detector2.Detector import Detector
 from extractor.Extractor import Extractor
 from generator.Generator import Generator
 from matcher.Matcher import Matcher
@@ -146,6 +146,8 @@ def main():
             images.append(file)
 
     #print(images)
+    images=['people3.jpg']
+    img_dir_in="./in/"
 
     for img_name in sorted(images):
         img = misc.imread(os.path.join(img_dir_in, img_name))
@@ -196,7 +198,7 @@ def main():
             #print("Features shape: {}".format(features.shape))
 
             # match with best entry in feature database
-            best_match = m.match(features)
+            best_match = m.match(features,57)
             #print("Best match ID: {}".format(best_match))
             if best_match >= 57: # DEBUG: person_id currently limited to max 56 - Generator hardcoded identity len is 57
                 best_match = 1
@@ -233,8 +235,8 @@ def main():
         #    cv2.namedWindow("Detector")
         #cv2.imshow('Sequence window', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
     
-        #if _GENERATE_DB:
-        #    misc.toimage(alt_img, cmin=0.0, cmax=255.0).save('./out/outfile.png')
+        if _GENERATE_DB:
+           misc.toimage(alt_img, cmin=0.0, cmax=255.0).save('./out/outfile.png')
         
     print("De-ID pipeline: DONE.")
     

@@ -104,7 +104,10 @@ class Replacer:
         # kernel = np.ones((4,4),np.uint8)
         # mask=cv2.erode(mask,kernel)
         if _debug:
-            cv2.imshow('face', src_face)
+            src_face2=src_face.copy()
+            src_face2[np.minimum(src_face.shape[0] - 1, np.maximum(src_pts[:, 1], 0)),
+                     np.minimum(src_face.shape[1] - 1, np.maximum(0,src_pts[:,0]))] = [0,255,0]
+            cv2.imshow('face', src_face2)
             cv2.imshow('mask', mask*255)
 
        # print("SRC: {}".format(src_pts))
