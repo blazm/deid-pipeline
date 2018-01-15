@@ -175,7 +175,7 @@ class Replacer:
             mask = self.generateGaussianMask(m)
         else:
             mask=np.squeeze(mask).astype(np.float32)
-            mask=cv2.GaussianBlur(mask,(9,9),3)
+            mask=cv2.GaussianBlur(mask,(9,9),3,borderType=cv2.BORDER_CONSTANT)
             # cv2.imshow("maskB",mask)
             # cv2.waitKey(0)
         
