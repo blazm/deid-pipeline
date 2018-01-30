@@ -66,6 +66,7 @@ class Replacer:
         return skin, mask
 
     def replace_v2(self,  src_img,  src_roi,  gen_img,  _debug=False):
+        gen_img=cv2.cvtColor(gen_img, cv2.COLOR_BGR2RGB)
 
         if _debug:
             cv2.imshow('Generated before warp',  cv2.cvtColor(gen_img, cv2.COLOR_RGB2BGR))
@@ -165,7 +166,15 @@ class Replacer:
             cv2.imshow("src face",src)
             cv2.imshow("color corrected face",res)
             cv2.waitKey(0)
-        return res
+        ##return res
+        maskThreshold=150
+        mask=cv2.cvtColor(gen,cv2.COLOR_RGB2GRAY)
+        mask[mask<maskThreshold]=maskThreshold
+        mask-=maskThreshold
+        mask=(mask/(255-maskThreshold))[:,:,np.newaxis]
+        cv2.imshow("CC MASK",mask)
+
+        return (res*(1-mask) + mask*gen.astype(np.float)/gen.mean((0,1))*src.mean((0,1))).astype(np.uint8)
 
     def replace(self, src_img, src_roi, gen_img, mask=None, _debug=False):
         x, y, w, h = src_roi
