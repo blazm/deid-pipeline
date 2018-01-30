@@ -31,6 +31,7 @@ class Detector:
 
     def detect(self, img, _debug=False, detect_threshold=0.2, expand=0.1):
         image_np = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        image_np=img
         with self.detection_graph.as_default():
             # the array based representation of the image will be used later in order to prepare the
             # result image with boxes and labels on it.
