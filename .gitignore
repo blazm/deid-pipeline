@@ -94,3 +94,7 @@ ENV/
 **/generator/output
 **/replacer/shape_predictor_68_face_landmarks.dat
 **/in
+**/out
+**/tests
+**/TODO
+**.gitignore_**
