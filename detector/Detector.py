@@ -3,14 +3,16 @@ import numpy as np
 import cv2
 
 from os.path import realpath, normpath
-from os.path import join
+from os.path import join, split
 
 class Detector:
     
     def __init__(self):
         self.rois = []
-        haarpath = normpath(realpath(cv2.__file__) + '../../../../../share/OpenCV/haarcascades/')
-        self.face_cascade = cv2.CascadeClassifier(join(haarpath, 'haarcascade_frontalface_default.xml'))
+        #haarpath = normpath(realpath(cv2.__file__) + '../../../../../share/OpenCV/haarcascades/')
+        #self.face_cascade = cv2.CascadeClassifier(join(haarpath, 'haarcascade_frontalface_default.xml'))
+        detector_path = split(realpath(__file__))[0]
+        self.face_cascade = cv2.CascadeClassifier(join(detector_path, 'haarcascade_frontalface_default.xml'))
         #self.eye_cascade = cv2.CascadeClassifier(join(haarpath, 'haarcascade_eye.xml'))
         
     def detect(self,  img,  _debug=False):  
