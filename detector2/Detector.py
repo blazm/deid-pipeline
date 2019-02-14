@@ -30,7 +30,7 @@ class Detector:
             self.config.gpu_options.allow_growth = True
             self.sess=tf.Session(graph=self.detection_graph, config=self.config)
 
-    def detect(self, img, _debug=False, detect_threshold=0.2, expand=0.1):
+    def detect(self, img, _debug=False, detect_threshold=0.2, expand=0.5):
         image_np = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         #image_np=img
         with self.detection_graph.as_default():

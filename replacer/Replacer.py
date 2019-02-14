@@ -42,6 +42,7 @@ class Replacer:
         self.mask = None
 
         predictor_path = "./replacer/shape_predictor_68_face_landmarks.dat"
+        #predictor_path = "./replacer/shape_predictor_5_face_landmarks.dat" # also works!
         #detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor(predictor_path)
         
@@ -232,6 +233,26 @@ class Replacer:
 
         output_im = im1 * (1.0 - combined_mask) + warped_corrected_im2 * combined_mask
 
+        if _debug:
+            src_face = im1
+            src_pts = landmarks1
+            self.src_face_landmarks=src_face.copy()
+            self.src_face_landmarks = cv2.cvtColor(self.src_face_landmarks, cv2.COLOR_RGB2BGR)
+            self.src_face_landmarks[np.minimum(src_face.shape[0] - 1, np.maximum(src_pts[:, 1], 0)),
+                     np.minimum(src_face.shape[1] - 1, np.maximum(0,src_pts[:,0]))] = [0,255,0]
+            
+
+            cv2.imshow("Source Face", cv2.cvtColor(src_face, cv2.COLOR_RGB2BGR))
+            #cv2.moveWindow('Source Face', 0,30)
+            
+            #final = np.hstack((cv2.cvtColor(src_face2, cv2.COLOR_RGB2BGR), mask*255))
+            #def x3(gray):
+            #    return np.array([gray,gray,gray]).transpose((1, 2, 0))
+            self.src_mask = np.repeat(mask*255, 3, axis=2)
+            #print("SRC MASK: ", self.src_mask.shape)
+            cv2.imshow('Source Mask', mask*255)
+            #cv2.moveWindow('Source Mask', 0,60)
+            
         #center = (int(h/2), int(w/2))
         #output_im = cv2.seamlessClone(im2, im1, warped_mask, center, cv2.NORMAL_CLONE)
 
@@ -292,7 +313,7 @@ class Replacer:
                      np.minimum(src_face.shape[1] - 1, np.maximum(0,src_pts[:,0]))] = [0,255,0]
             
 
-            #cv2.imshow("Source Face", cv2.cvtColor(src_face, cv2.COLOR_RGB2BGR))
+            cv2.imshow("Source Face", cv2.cvtColor(src_face, cv2.COLOR_RGB2BGR))
             #cv2.moveWindow('Source Face', 0,30)
             
             #final = np.hstack((cv2.cvtColor(src_face2, cv2.COLOR_RGB2BGR), mask*255))
@@ -300,12 +321,12 @@ class Replacer:
             #    return np.array([gray,gray,gray]).transpose((1, 2, 0))
             self.src_mask = np.repeat(mask*255, 3, axis=2)
             #print("SRC MASK: ", self.src_mask.shape)
-            #cv2.imshow('Source Mask', mask*255)
+            cv2.imshow('Source Mask', mask*255)
             #cv2.moveWindow('Source Mask', 0,60)
             
        # print("SRC: {}".format(src_pts))
        # print("GEN: {}".format(gen_pts)) 
-        
+
         self.homography, status = cv2.findHomography(gen_pts, src_pts)
         
        # print("S: {}".format(status)) # homography matrix        
@@ -313,7 +334,7 @@ class Replacer:
         
         gen_img_warp = cv2.warpPerspective(gen_img, self.homography, size, borderMode=cv2.BORDER_REPLICATE)
 
-        gen_img_warp = self.equalize_colors(src_face, gen_img_warp, mask, True, (gen_img, src_face2))
+        #gen_img_warp = self.equalize_colors(src_face, gen_img_warp, mask, True, (gen_img, src_face2))
         
         #gen_img_warp = cv2.cvtColor(gen_img_warp, cv2.COLOR_RGB2BGR)
 

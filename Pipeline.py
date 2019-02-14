@@ -51,7 +51,7 @@ class Pipeline:
         sx, sy, sw, sh = roi         
         ih, iw, ch = img.shape
         # TODO: check borders
-        sub_img = np.zeros((h, w, ch), dtype=img.dtype)
+        #sub_img = np.zeros((h, w, ch), dtype=img.dtype)
         
         dx = 0
         if (x < 0):
@@ -69,8 +69,10 @@ class Pipeline:
         elif (y+h > ih):
             h = ih - y
         
-        sub_img[dy:dy+h, dx:dx+w, :] = img[y:y+h, x:x+w, :] # take subarray from source image
-        return sub_img
+        return img[y:y+h, x:x+w, :] # take subarray from source image
+
+        #sub_img[dy:dy+h, dx:dx+w, :] = img[y:y+h, x:x+w, :] # take subarray from source image
+        #return sub_img
         
     def extractFeatures(self,  img_db_dir='./DB/rafd2-frontal/', csv_out_filename='./DB/feat-db.csv'):
         '''Offline method to extract features from rafd2 database using VGG Extractor. Results are exported in the .csv file '''
@@ -494,7 +496,7 @@ class Pipeline:
                 
                 # TODO: replace the faces in original image
                 try:
-                    alt_img = self.r.replace_v3(img, (x, y, w, h), gen_img, _debug=True)
+                    alt_img = self.r.replace_v3(img, (x, y, w, h), gen_img, _debug=_DEBUG)
                 except:
                     alt_img = img
                     print("SRC ROI: {}".format((x, y, w, h)))
