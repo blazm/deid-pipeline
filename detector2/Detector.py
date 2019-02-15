@@ -65,7 +65,7 @@ class Detector:
                     line_thickness=4,
                     min_score_thresh=detect_threshold)
                 cv2.imshow("Detected Face(s)", cv2.cvtColor(img2, cv2.COLOR_RGB2BGR))
-                #cv2.waitKey(1)
+                cv2.waitKey(1)
             imgHeight,imgWidth=img.shape[:2]
             res2=[]
             for s, (ymin, xmin, ymax, xmax) in zip(np.squeeze(scores), np.squeeze(boxes)):

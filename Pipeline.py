@@ -14,7 +14,9 @@ import cv2
 
 #--------- pipeline imports --------------
 # from folder.file import class
-from detector.Detector import Detector
+
+#from detector2.Detector import Detector # using SSD
+from detector.Detector import Detector # using ViolaJones
 from extractor.Extractor import Extractor
 from generator.Generator import Generator
 from matcher.Matcher import Matcher
@@ -70,9 +72,6 @@ class Pipeline:
             h = ih - y
         
         return img[y:y+h, x:x+w, :] # take subarray from source image
-
-        #sub_img[dy:dy+h, dx:dx+w, :] = img[y:y+h, x:x+w, :] # take subarray from source image
-        #return sub_img
         
     def extractFeatures(self,  img_db_dir='./DB/rafd2-frontal/', csv_out_filename='./DB/feat-db.csv'):
         '''Offline method to extract features from rafd2 database using VGG Extractor. Results are exported in the .csv file '''
@@ -403,7 +402,7 @@ class Pipeline:
 
     def processFrame(self, img, frame_number, num_detected_frames, _DEBUG=True):
 
-        _DEBUG = False
+        _DEBUG = True
         _DEMO = True
         #frame_number = img_name.split('.')[0]
         #if int(frame_number) % 5 != 0: continue # take just one image per second
@@ -413,7 +412,8 @@ class Pipeline:
         #    if not annotated_people: continue
             
         #img = imread(os.path.join(img_dir_in, img_name))
-        #img = imresize(img, (img.shape[0]//2,  img.shape[1]//2,  3), interp='bicubic', mode=None)
+        #
+        img = imresize(img, (img.shape[0]//2,  img.shape[1]//2,  3), interp='bicubic', mode=None)
                 
         #for person in annotated_people:
         #    person_id, face_roi = person
@@ -423,6 +423,8 @@ class Pipeline:
         #img = misc.imread('./in/P1E_S1_C1/00001333.jpg')
         #img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # convert color space for proper image display
         
+        
+
         src_img = copy.copy(img) # copy orig img for Detector
         #src_img = cv2.cvtColor(src_img, cv2.COLOR_RGB2BGR) # convert color space for proper image display
         alt_img = img
@@ -432,7 +434,7 @@ class Pipeline:
         
         # TODO: for loop for all images in ./in/ directory OR all frames in provided video
         # detections format - list of tuples: [(x,y,w,h), ...]
-        detections = self.d.detect(img,  _debug=_DEBUG)
+        detections = self.d.detect(img,  _debug=False)
         
         if len(detections) > 0:
             num_detected_frames = num_detected_frames+1;
@@ -496,7 +498,11 @@ class Pipeline:
                 
                 # TODO: replace the faces in original image
                 try:
+<<<<<<< HEAD
                     alt_img = self.r.replace_v3(img, (x, y, w, h), gen_img, _debug=_DEBUG)
+=======
+                    alt_img = self.r.replace_v3(img, (x, y, w, h), gen_img, _debug=False)
+>>>>>>> a36f35364d82faa2874dff751b9e89492e4a0035
                 except:
                     alt_img = img
                     print("SRC ROI: {}".format((x, y, w, h)))

@@ -71,8 +71,6 @@ class Pipeline:
             h = ih - y
         
         return img[y:y+h, x:x+w, :] # take subarray from source image
-        #sub_img[dy:dy+h, dx:dx+w, :] = img[y:y+h, x:x+w, :] # take subarray from source image
-        #return sub_img
         
     def extractFeatures(self,  img_db_dir='./DB/rafd2-frontal/', csv_out_filename='./DB/feat-db.csv'):
         '''Offline method to extract features from rafd2 database using VGG Extractor. Results are exported in the .csv file '''
@@ -391,6 +389,136 @@ class Pipeline:
             cv2.destroyAllWindows()
             
         return num_detected_frames
+
+    
+    def processFrame(self, img, frame_number, num_detected_frames, _DEBUG=True):
+
+        _DEBUG = False
+        _DEMO = True
+        #frame_number = img_name.split('.')[0]
+        #if int(frame_number) % 5 != 0: continue # take just one image per second
+        _GENERATE_DB = False
+        #if _LOAD_GT:            
+        #    annotated_people = groundtruth_dict[frame_number]
+        #    if not annotated_people: continue
+            
+        #img = imread(os.path.join(img_dir_in, img_name))
+        #img = imresize(img, (img.shape[0]//2,  img.shape[1]//2,  3), interp='bicubic', mode=None)
+                
+        #for person in annotated_people:
+        #    person_id, face_roi = person
+        
+        #img = misc.imread('./in/people3.jpg')
+        #img = misc.imread('./in/P1E_S1_C1/00001154.jpg')
+        #img = misc.imread('./in/P1E_S1_C1/00001333.jpg')
+        #img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # convert color space for proper image display
+        
+        src_img = copy.copy(img) # copy orig img for Detector
+        #src_img = cv2.cvtColor(src_img, cv2.COLOR_RGB2BGR) # convert color space for proper image display
+        alt_img = img
+        #if _DEBUG:
+         #   cv2.imshow('Image input', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            #cv2.waitKey(1)
+        
+        # TODO: for loop for all images in ./in/ directory OR all frames in provided video
+        # detections format - list of tuples: [(x,y,w,h), ...]
+        detections = self.d.detect(img,  _debug=_DEBUG)
+        
+        if len(detections) > 0:
+            num_detected_frames = num_detected_frames+1
+        
+        #print("Detections length: {}".format(len(detections)))
+        for ix, roi in enumerate(detections):
+            x, y, w, h = roi
+            
+            
+            selected_person_id = 0;
+            #print(x, y, w, h)
+            
+            #sub_img = img[y:y+h, x:x+w, :] # take subarray from source image
+            sub_img = self.crop_from(img, (x, y, w, h))
+            
+            if _GENERATE_DB:
+                misc.toimage(sub_img, cmin=0.0, cmax=255.0).save(
+                os.path.join(img_dir_out, "raw_detection", ("{}-{}-".format(selected_person_id, sequence_name) + img_name)))
+            
+            x2, y2, w2, h2 = self.resize_roi_2x((x, y, w, h))
+            
+            # TODO: check bounds!
+            #feat_img = img[y2:y2+h2, x2:x2+w2,  :]
+            feat_img = self.crop_from(img, (x2, y2, w2, h2))
+            
+            if _GENERATE_DB:
+                misc.toimage(feat_img, cmin=0.0, cmax=255.0).save(
+                os.path.join(img_dir_out, "resize_roi_2x", ("{}-{}-".format(selected_person_id, sequence_name) + img_name)))
+            
+            # extract features from subimage
+            features = self.e.extract(feat_img)
+            #print("Features shape: {}".format(features.shape))
+            
+            # match with best entry in feature database
+            max_id_limit = 57 # DEBUG: person_id currently limited to max 56 - Generator hardcoded identity len is 57
+            best_match = self.m.match(features, max_id_limit, selected_person_id)
+            #print("Best match ID: {}".format(best_match))
+            if best_match >= 57:
+                print("Warning: BestMatch exceeds maximum - {}".format(best_match))
+                best_match = 1
+            
+            
+            gen_img = self.g.generate(id=best_match)
+            
+            # detect face on gen img:
+            gen_detection = self.d.detect(gen_img, _debug=False)
+            #print("Generator detections: {}".format(gen_detection))
+            
+            if len(gen_detection) == 1:
+                gx, gy, gw, gh = gen_detection[0] # TODO: resize roi to cover full face?
+                
+                #gen_img = gen_img[gy:gy+gh, gx:gx+gw, :]
+                gen_img = self.crop_from(gen_img, (gx, gy, gw, gh))
+          
+                # resize gen img to match sub_img size
+                
+                #print("GEN IMG shape before: {}".format(gen_img.shape))
+                gen_img = imresize(gen_img, (w,  h,  3), interp='bicubic', mode=None)
+                
+                #print("GEN IMG shape after: {}".format(gen_img.shape))
+                
+                # TODO: replace the faces in original image
+                try:
+                    alt_img = self.r.replace_v3(img, (x, y, w, h), gen_img, _debug=True)
+                except:
+                    alt_img = img
+                    print("SRC ROI: {}".format((x, y, w, h)))
+                    print("GENERATED: {}".format(gen_img.shape))
+                    import sys
+                    print("ERROR: Replacer - replace - unexpected error:", sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2])
+        
+            
+                if _GENERATE_DB:
+                    #db_img = alt_img[y:y+h, x:x+w, :]
+                    db_img = self.crop_from(alt_img, (x, y, w, h))
+                    misc.toimage(db_img, cmin=0.0, cmax=255.0).save(
+                    os.path.join(img_dir_out, "de_identified",  ("{}-{}-".format(selected_person_id, sequence_name) + img_name)))
+            else:
+                alt_img = img
+                print("Warning: Number of face detections - {} - on generated image differs from 1.".format(len(gen_detection)))
+            
+            # DONE: swap alt_img and img for multiple detections on single image
+            img = alt_img
+
+
+
+        if _DEMO:
+        
+            final_img = np.hstack((src_img, alt_img))
+        
+            cv2.imshow("Source Image / Output Image", cv2.cvtColor(final_img, cv2.COLOR_RGB2BGR))
+
+            cv2.waitKey(1)
+
+        return num_detected_frames
+
         
     def processFrame(self, img, frame_number, num_detected_frames, _DEBUG=True):
 

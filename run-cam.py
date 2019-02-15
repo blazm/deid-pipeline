@@ -13,7 +13,7 @@ from collections import defaultdict
 if __name__=="__main__":
 
     _GENERATE_DB = False
-    _DEBUG = True
+    _DEBUG = False
     
     model_path = './generator/output/FaceGen.RaFD.model.d6.adam.iter500.h5'
     feat_db_path = './DB/feat-db.csv'
@@ -29,6 +29,10 @@ if __name__=="__main__":
     while 1:
         ret, image = cap.read()
 
+        if image is None or not ret:
+            print("No data from camera! ")
+            continue
+        
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 

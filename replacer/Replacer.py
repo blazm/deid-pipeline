@@ -1,3 +1,4 @@
+from os.path import join, split, realpath
 import numpy as np
 import copy
 import cv2
@@ -40,12 +41,9 @@ class Replacer:
     
     def __init__(self):
         self.mask = None
-
         predictor_path = "./replacer/shape_predictor_68_face_landmarks.dat"
-        #predictor_path = "./replacer/shape_predictor_5_face_landmarks.dat" # also works!
         #detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor(predictor_path)
-        
         self.src_face_landmarks = None
         self.gen_img = None
         self.src_mask = None
