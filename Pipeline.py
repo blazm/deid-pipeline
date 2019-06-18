@@ -498,11 +498,8 @@ class Pipeline:
                 
                 # TODO: replace the faces in original image
                 try:
-<<<<<<< HEAD
-                    alt_img = self.r.replace_v3(img, (x, y, w, h), gen_img, _debug=_DEBUG)
-=======
+                    #alt_img = self.r.replace_v3(img, (x, y, w, h), gen_img, _debug=_DEBUG)
                     alt_img = self.r.replace_v3(img, (x, y, w, h), gen_img, _debug=False)
->>>>>>> a36f35364d82faa2874dff751b9e89492e4a0035
                 except:
                     alt_img = img
                     print("SRC ROI: {}".format((x, y, w, h)))
